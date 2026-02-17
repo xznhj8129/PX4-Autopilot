@@ -48,18 +48,18 @@
 
 bool uORB::Manager::initialize()
 {
-	if (_Instance == nullptr) {
-		_Instance = new uORB::Manager();
+	if (_Instance.load() == nullptr) {
+		_Instance.store(new uORB::Manager());
 	}
 
-	return _Instance != nullptr;
+	return _Instance.load() != nullptr;
 }
 
 bool uORB::Manager::terminate()
 {
-	if (_Instance != nullptr) {
-		delete _Instance;
-		_Instance = nullptr;
+	if (_Instance.load() != nullptr) {
+		delete _Instance.load();
+		_Instance.store(nullptr);
 		return true;
 	}
 
