@@ -95,7 +95,13 @@ public:
 		} else
 #endif // __PX4_NUTTX
 		{
-			return __atomic_load_n(&_value, __ATOMIC_SEQ_CST);
+			// Use __atomic_load (load into an output operand) rather than
+			// __atomic_load_n (return by value): the latter only accepts integer
+			// and pointer types, but px4::atomic is also instantiated for float
+			// (e.g. the perf_counter mean/variance under ThreadSanitizer).
+			T val;
+			__atomic_load(&_value, &val, __ATOMIC_SEQ_CST);
+			return val;
 		}
 	}
 
