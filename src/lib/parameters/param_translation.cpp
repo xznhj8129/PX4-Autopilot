@@ -244,5 +244,14 @@ param_modify_on_import_ret param_modify_on_import(bson_node_t node)
 		}
 	}
 
+	// 2026-06-12: merge COM_RC_OVERRIDE + COM_RC_STICK_OV into COM_RC_OVR_SPEED; only a saved disabled (0) needs migrating
+	if ((node->type == bson_type_t::BSON_INT32) && (strcmp("COM_RC_OVERRIDE", node->name) == 0) && (node->i32 == 0)) {
+		node->d = 0.0;
+		node->type = bson_type_t::BSON_DOUBLE;
+		strcpy(node->name, "COM_RC_OVR_SPEED");
+		PX4_INFO("migrating %s -> %s (disabled)", "COM_RC_OVERRIDE", "COM_RC_OVR_SPEED");
+		return param_modify_on_import_ret::PARAM_MODIFIED;
+	}
+
 	return param_modify_on_import_ret::PARAM_NOT_MODIFIED;
 }
