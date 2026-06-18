@@ -113,7 +113,7 @@ public:
 	bool		valid() const { return _subscription.valid(); }
 
 	uint8_t		get_instance() const { return _subscription.get_instance(); }
-	uint32_t        get_interval_us() const { return _interval_us; }
+	uint32_t        get_interval_us() const { return _interval_us.load(); }
 	unsigned	get_last_generation() const { return _subscription.get_last_generation(); }
 	orb_id_t	get_topic() const { return _subscription.get_topic(); }
 
@@ -121,13 +121,13 @@ public:
 	 * Set the interval in microseconds
 	 * @param interval The interval in microseconds.
 	 */
-	void		set_interval_us(uint32_t interval) { _interval_us = interval; }
+	void		set_interval_us(uint32_t interval) { _interval_us.store(interval); }
 
 	/**
 	 * Set the interval in milliseconds
 	 * @param interval The interval in milliseconds.
 	 */
-	void		set_interval_ms(uint32_t interval) { _interval_us = interval * 1000; }
+	void		set_interval_ms(uint32_t interval) { _interval_us.store(interval * 1000); }
 
 	/**
 	 * Set the last data update
@@ -138,7 +138,7 @@ protected:
 
 	Subscription	_subscription;
 	px4::atomic<uint64_t>	_last_update{0};	// last subscription update in microseconds
-	uint32_t	_interval_us{0};	// maximum update interval in microseconds
+	px4::atomic<uint32_t>	_interval_us{0};	// maximum update interval in us (set by subscriber, read in call() on the publisher thread)
 
 };
 
