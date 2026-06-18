@@ -40,6 +40,9 @@
 
 using namespace matrix;
 
+// Takeoff horizontal brake as a fraction of MPC_ACC_HOR; gentle so it can't stall the climb onto a deck.
+static constexpr float kTakeoffBrakeFraction = 0.5f;
+
 bool FlightTaskAuto::activate(const trajectory_setpoint_s &last_setpoint)
 {
 	bool ret = FlightTask::activate(last_setpoint);
@@ -191,8 +194,14 @@ bool FlightTaskAuto::update()
 	_updateTrajConstraints();
 
 	if (_inTakeoffRamp()) {
-		// Hold the live horizontal position during the takeoff ramp so the climb isn't slowed and tracks a moving deck
+		// Pin live position+velocity through the ramp: ride the deck without leaning, so no spring at FLIGHT.
 		_position_smoothing.forceSetPosition({_position(0), _position(1), NAN});
+		_position_smoothing.forceSetVelocity({_velocity(0), _velocity(1), NAN});
+	}
+
+	if (_type == WaypointType::takeoff) {
+		// Gentle horizontal brake so killing the deck velocity can't steal the thrust-limited climb (no sink); no-op if static.
+		_position_smoothing.setMaxAccelerationXY(kTakeoffBrakeFraction * _param_mpc_acc_hor.get());
 	}
 
 	PositionSmoothing::PositionSmoothingSetpoints smoothed_setpoints;
