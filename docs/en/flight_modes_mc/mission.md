@@ -13,6 +13,7 @@ The mission is typically created and uploaded with a Ground Control Station (GCS
 - RC control switches can be used to change flight modes on any vehicle.
 - RC stick movement will [by default](#COM_RC_OVERRIDE) change the vehicle to [Position mode](../flight_modes_mc/position.md) unless prevented by the active failsafe state.
   This is true for multicopters and VTOL in MC mode.
+- The RC yaw stick can optionally nudge vehicle heading during the mission without changing mode (see [MPC_AUTO_RC_YAW](#MPC_AUTO_RC_YAW)).
 
 :::
 
@@ -110,6 +111,7 @@ General parameters:
 | <a id="NAV_RCL_ACT"></a>[NAV_RCL_ACT](../advanced_config/parameter_reference.md#NAV_RCL_ACT)             | RC loss failsafe mode (what the vehicle will do if it looses RC connection) - e.g. enter hold mode, return mode, terminate etc.                                                                                                                                         |
 | <a id="COM_RC_OVERRIDE"></a>[COM_RC_OVERRIDE](../advanced_config/parameter_reference.md#COM_RC_OVERRIDE) | Controls whether stick movement on a multicopter (or VTOL in MC mode) gives control back to the pilot in [Position mode](../flight_modes_mc/position.md). This can be separately enabled for auto modes and for offboard mode, and is enabled in auto modes by default. |
 | <a id="COM_RC_STICK_OV"></a>[COM_RC_STICK_OV](../advanced_config/parameter_reference.md#COM_RC_STICK_OV) | The amount of stick movement that causes a transition to [Position mode](../flight_modes_mc/position.md) (if [COM_RC_OVERRIDE](#COM_RC_OVERRIDE) is enabled).                                                                                                           |
+| <a id="MPC_AUTO_RC_YAW"></a>[MPC_AUTO_RC_YAW](../advanced_config/parameter_reference.md#MPC_AUTO_RC_YAW) | Enable RC yaw stick override of vehicle heading in Auto modes (multicopter). The yaw stick nudges heading without switching modes, and the heading is held when the stick is released. Switching flight mode (e.g. to Hold and back) clears the held heading and returns yaw to the mode default. Requires [COM_RC_OVERRIDE](#COM_RC_OVERRIDE) to be disabled. |
 
 Parameters related to [mission feasibility checks](#mission-feasibility-checks):
 
