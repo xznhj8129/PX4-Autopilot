@@ -41,16 +41,14 @@
  */
 #include <drivers/device/spi.h>
 #include <drivers/drv_hrt.h>
+#include <lib/osd/MessageDisplay.hpp>
+#include <lib/osd/OsdTelemetry.hpp>
 #include <parameters/param.h>
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/module_params.h>
 #include <px4_platform_common/i2c_spi_buses.h>
-#include <uORB/Subscription.hpp>
-#include <uORB/topics/battery_status.h>
-#include <uORB/topics/vehicle_local_position.h>
-#include <uORB/topics/vehicle_status.h>
 
 #define OSD_SPI_BUS_SPEED (2000000L) /*  2 MHz  */
 
@@ -91,40 +89,21 @@ private:
 	int writeRegister(unsigned reg, uint8_t data);
 
 	int add_character_to_screen(char c, uint8_t pos_x, uint8_t pos_y);
+	int add_string_to_screen(const char *str, uint8_t pos_x, uint8_t pos_y, int width);
 	void add_string_to_screen_centered(const char *str, uint8_t pos_y, int max_length);
 	void clear_line(uint8_t pos_x, uint8_t pos_y, int length);
 
-	int add_battery_info(uint8_t pos_x, uint8_t pos_y);
-	int add_altitude(uint8_t pos_x, uint8_t pos_y);
+	int add_battery_info(const battery_status_s &battery, uint8_t pos_x, uint8_t pos_y);
+	int add_altitude(const vehicle_local_position_s &local_position, uint8_t pos_x, uint8_t pos_y);
 	int add_flighttime(float flight_time, uint8_t pos_x, uint8_t pos_y);
-
-	static const char *get_flight_mode(uint8_t nav_state);
 
 	int enable_screen();
 	int disable_screen();
 
-	int update_topics();
 	int update_screen();
 
-	uORB::Subscription _battery_sub{ORB_ID(battery_status)};
-	uORB::Subscription _local_position_sub{ORB_ID(vehicle_local_position)};
-	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
-
-	// battery
-	float _battery_voltage_v{0.f};
-	float _battery_discharge_mah{0.f};
-	bool _battery_valid{false};
-
-	// altitude
-	float _local_position_z{0.f};
-	bool _local_position_valid{false};
-
-	// flight time
-	uint8_t _arming_state{0};
-	uint64_t _arming_timestamp{0};
-
-	// flight mode
-	uint8_t _nav_state{0};
+	osd::MessageDisplay _display{};
+	osd::Telemetry _telemetry{};
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::OSD_ATXXXX_CFG>) _param_osd_atxxxx_cfg

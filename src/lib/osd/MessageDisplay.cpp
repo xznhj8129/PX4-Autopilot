@@ -34,10 +34,10 @@
 /* Implementation of MessageDisplay class.
  */
 
-#include <math.h>
 #include "MessageDisplay.hpp"
+#include <math.h>
 
-namespace msp_osd
+namespace osd
 {
 
 void MessageDisplay::set(const MessageDisplayType mode, const char *string)
@@ -108,22 +108,27 @@ void MessageDisplay::get(char *string, const uint32_t current_time)
 
 	// check if we should update the full message (and reset display)
 	if (updated_) {
-		// full_message = "Flight Mode: " + flight_mode_msg + " - ARMED: " + arming_msg + " - STATUS: " + status_msg + " - WARNING: " + warning_msg + "            ";
+		// full_message = "Flight Mode: " + flight_mode_msg + " - ARMED: " +
+		// arming_msg + " - STATUS: " + status_msg + " - WARNING: " + warning_msg +
+		// "            ";
 
 		// reset and construct full message
 		strcpy(full_message, "");
-		strncat(full_message, flight_mode_msg, 3);	// first three characters of Flight Mode
+		strncat(full_message, flight_mode_msg,
+			3); // first three characters of Flight Mode
 		strcat(full_message, "|");
-		strncat(full_message, arming_msg, 4);		// first four characters of Arming Message
+		strncat(full_message, arming_msg,
+			4); // first four characters of Arming Message
 		strcat(full_message, "|");
-		strncat(full_message, heading_msg, 2);		// first two characters of Heading
+		strncat(full_message, heading_msg, 2); // first two characters of Heading
 
 		// add a warning message, if it's not empty
 		if (strlen(warning_msg) != 0) {
 			// copy as much of warning message as we can fit
 			strcat(full_message, "   WARN: ");
-			const size_t chars_used {20};
-			strncat(full_message, warning_msg, MSG_BUFFER_SIZE - chars_used - FULL_MSG_LENGTH - 1);
+			const size_t chars_used{20};
+			strncat(full_message, warning_msg,
+				MSG_BUFFER_SIZE - chars_used - FULL_MSG_LENGTH - 1);
 
 			// pad with one full length of terminal whitespace
 			for (unsigned i = 0; i != FULL_MSG_LENGTH; ++i) {
@@ -143,7 +148,8 @@ void MessageDisplay::get(char *string, const uint32_t current_time)
 		return;
 	}
 
-	// check if we should update the sub-message (giving extra time to the beginning)
+	// check if we should update the sub-message (giving extra time to the
+	// beginning)
 	uint32_t dt = current_time - last_update_;
 
 	if ((index == 0 && dt >= dwell_) || (index != 0 && dt >= period_)) {
@@ -161,4 +167,4 @@ void MessageDisplay::get(char *string, const uint32_t current_time)
 	string[FULL_MSG_LENGTH] = '\0';
 }
 
-} // namespace msp_osd
+} // namespace osd

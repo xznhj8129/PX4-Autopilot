@@ -36,10 +36,10 @@
 
 #pragma once
 
-#include <string.h>
 #include <stdint.h>
+#include <string.h>
 
-namespace msp_osd
+namespace osd
 {
 
 // character size limitations
@@ -52,13 +52,7 @@ namespace msp_osd
 #define FULL_MSG_BUFFER 13
 
 // supported message types
-enum MessageDisplayType {
-	WARNING,
-	FLIGHT_MODE,
-	ARMING,
-	STATUS,
-	HEADING
-};
+enum MessageDisplayType { WARNING, FLIGHT_MODE, ARMING, STATUS, HEADING };
 
 // display information
 class MessageDisplay
@@ -87,7 +81,8 @@ class MessageDisplay
 
 public:
 	MessageDisplay() = default;
-	MessageDisplay(const uint64_t period, const uint64_t dwell) : period_(period), dwell_(dwell) {}
+	MessageDisplay(const uint64_t period, const uint64_t dwell)
+		: period_(period), dwell_(dwell) {}
 
 	// set the given string
 	void set(const MessageDisplayType mode, const char *string);
@@ -100,5 +95,4 @@ public:
 	void set_dwell(const uint64_t dwell) { dwell_ = dwell; }
 };
 
-
-} // namespace msp_osd
+} // namespace osd
