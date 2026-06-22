@@ -50,8 +50,6 @@
 using namespace time_literals;
 
 static constexpr uint32_t OSD_UPDATE_RATE{50_ms};	// 20 Hz
-static constexpr float OSD_AH_HALF_HEIGHT_SUBROWS{40.5f};
-static constexpr float OSD_AH_HALF_WIDTH_COLUMNS{5.f};
 
 OSDatxxxx::OSDatxxxx(const I2CSPIDriverConfig &config) :
 	SPI(config),
@@ -84,14 +82,9 @@ OSDatxxxx::init()
 		return ret;
 	}
 
-	// clear the screen
-	int num_rows = (_param_osd_atxxxx_cfg.get() == 1 ? OSD_NUM_ROWS_NTSC : OSD_NUM_ROWS_PAL);
-
-	for (int i = 0; i < OSD_CHARS_PER_ROW; i++) {
-		for (int j = 0; j < num_rows; j++) {
-			add_character_to_screen(' ', i, j);
-		}
-	}
+	memset(_screen, ' ', sizeof(_screen));
+	memset(_displayed_screen, 0xff, sizeof(_displayed_screen));
+	ret = flush_screen();
 
 	if (ret == PX4_OK) {
 		start();
@@ -180,14 +173,14 @@ OSDatxxxx::writeRegister(unsigned reg, uint8_t data)
 }
 
 int
-OSDatxxxx::add_character_to_screen(char c, uint8_t pos_x, uint8_t pos_y)
+OSDatxxxx::write_character_to_screen(uint8_t c, uint8_t pos_x, uint8_t pos_y)
 {
 	uint16_t position = (OSD_CHARS_PER_ROW * pos_y) + pos_x;
 	uint8_t position_lsb = 0;
 	int ret = PX4_ERROR;
 
 	if (position > 0xFF) {
-		position_lsb = static_cast<uint8_t>(position) - 0xFF;
+		position_lsb = static_cast<uint8_t>(position & 0xff);
 		ret = writeRegister(0x05, 0x01); //DMAH
 
 	} else {
@@ -208,6 +201,17 @@ OSDatxxxx::add_character_to_screen(char c, uint8_t pos_x, uint8_t pos_y)
 	ret = writeRegister(0x07, c);
 
 	return ret;
+}
+
+int
+OSDatxxxx::add_character_to_screen(char c, uint8_t pos_x, uint8_t pos_y)
+{
+	if (pos_x >= OSD_CHARS_PER_ROW || pos_y >= OSD_NUM_ROWS_PAL) {
+		return PX4_ERROR;
+	}
+
+	_screen[OSD_CHARS_PER_ROW * pos_y + pos_x] = static_cast<uint8_t>(c);
+	return PX4_OK;
 }
 
 int
@@ -233,6 +237,30 @@ OSDatxxxx::clear_line(uint8_t pos_x, uint8_t pos_y, int length)
 	for (int i = 0; i < length; ++i) {
 		add_character_to_screen(' ', pos_x + i, pos_y);
 	}
+}
+
+int
+OSDatxxxx::flush_screen()
+{
+	int ret = PX4_OK;
+	const int num_rows = _param_osd_atxxxx_cfg.get() == 1 ? OSD_NUM_ROWS_NTSC : OSD_NUM_ROWS_PAL;
+
+	for (int y = 0; y < num_rows; ++y) {
+		for (int x = 0; x < OSD_CHARS_PER_ROW; ++x) {
+			const int position = OSD_CHARS_PER_ROW * y + x;
+
+			if (_screen[position] != _displayed_screen[position]) {
+				const int write_ret = write_character_to_screen(_screen[position], x, y);
+				ret |= write_ret;
+
+				if (write_ret == PX4_OK) {
+					_displayed_screen[position] = _screen[position];
+				}
+			}
+		}
+	}
+
+	return ret;
 }
 
 int
@@ -332,17 +360,15 @@ OSDatxxxx::update_screen()
 {
 	int ret = PX4_OK;
 	const osd::TelemetryData &telemetry = _telemetry.data();
+	const int num_rows = _param_osd_atxxxx_cfg.get() == 1 ? OSD_NUM_ROWS_NTSC : OSD_NUM_ROWS_PAL;
 	char buf[16] {};
 	const int horizon_x = _param_osd_ah_x.get();
 	const int horizon_y = _param_osd_ah_y.get();
+	memset(_screen, ' ', sizeof(_screen));
 
 	if (enabled(osd::Symbol::ArtificialHorizon)) {
-		for (int y = horizon_y - 4; y <= horizon_y + 4; ++y) {
-			clear_line(horizon_x - 5, y, 11);
-		}
-
 		if (telemetry.attitude_valid) {
-			float roll = matrix::wrap_pi(telemetry.roll_rad);
+			float roll = -0.5f * matrix::wrap_pi(telemetry.roll_rad);
 
 			if (roll > M_PI_2_F) {
 				roll -= M_PI_F;
@@ -356,8 +382,9 @@ OSDatxxxx::update_screen()
 			const float half_horizontal_fov = math::radians(static_cast<float>(_param_osd_cam_hfov.get())) * 0.5f;
 
 			if (fabsf(camera_pitch) < M_PI_2_F) {
-				const float pitch_subrows = tanf(camera_pitch) / tanf(half_vertical_fov) * OSD_AH_HALF_HEIGHT_SUBROWS;
-				const float subrows_per_column = OSD_AH_HALF_HEIGHT_SUBROWS / OSD_AH_HALF_WIDTH_COLUMNS *
+				const float screen_height_subrows = num_rows * 9.f;
+				const float pitch_subrows = tanf(camera_pitch) / tanf(half_vertical_fov) * screen_height_subrows * 0.5f;
+				const float subrows_per_column = screen_height_subrows / OSD_CHARS_PER_ROW *
 								 tanf(half_horizontal_fov) / tanf(half_vertical_fov);
 				const float sin_roll = sinf(roll);
 				const float cos_roll = cosf(roll);
@@ -368,14 +395,14 @@ OSDatxxxx::update_screen()
 						const int row_offset = floorf(static_cast<float>(subrow) / 9.f);
 						const int glyph_offset = subrow - row_offset * 9;
 
-						if (row_offset >= -4 && row_offset <= 4) {
+						if (horizon_y + row_offset >= 0 && horizon_y + row_offset < num_rows) {
 							ret |= add_character_to_screen(OSD_SYMBOL_AH_BAR9_0 + glyph_offset, horizon_x + x,
 										       horizon_y + row_offset);
 						}
 					}
 
 				} else {
-					for (int y = -4; y <= 4; ++y) {
+					for (int y = -horizon_y; y < num_rows - horizon_y; ++y) {
 						const int x = lroundf((y * 9.f - pitch_subrows) * cos_roll /
 								      (sin_roll * subrows_per_column));
 
@@ -607,6 +634,7 @@ OSDatxxxx::update_screen()
 		ret |= add_string_to_screen(message, _param_osd_status_x.get(), _param_osd_status_y.get(), FULL_MSG_LENGTH);
 	}
 
+	ret |= flush_screen();
 	return ret;
 }
 
@@ -640,11 +668,6 @@ OSDatxxxx::RunImpl()
 		_display.set_period(_param_osd_scroll_rate.get() * 1000ULL);
 		_display.set_dwell(_param_osd_dwell_time.get() * 1000ULL);
 
-		const int num_rows = _param_osd_atxxxx_cfg.get() == 1 ? OSD_NUM_ROWS_NTSC : OSD_NUM_ROWS_PAL;
-
-		for (int y = 0; y < num_rows; ++y) {
-			clear_line(0, y, OSD_CHARS_PER_ROW);
-		}
 	}
 
 	_telemetry.update();

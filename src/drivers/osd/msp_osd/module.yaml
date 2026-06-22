@@ -193,16 +193,16 @@ parameters:
             description:
                 short: Analog OSD horizon center X position
             type: int32
-            min: 5
-            max: 24
+            min: 4
+            max: 25
             default: 15
 
         OSD_AH_Y:
             description:
                 short: Analog OSD horizon center Y position
             type: int32
-            min: 4
-            max: 8
+            min: 0
+            max: 12
             default: 6
 
         OSD_MODE_X:

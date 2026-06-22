@@ -90,9 +90,11 @@ private:
 	int readRegister(unsigned reg, uint8_t *data, unsigned count);
 	int writeRegister(unsigned reg, uint8_t data);
 
+	int write_character_to_screen(uint8_t c, uint8_t pos_x, uint8_t pos_y);
 	int add_character_to_screen(char c, uint8_t pos_x, uint8_t pos_y);
 	int add_string_to_screen(const char *str, uint8_t pos_x, uint8_t pos_y, int width);
 	void clear_line(uint8_t pos_x, uint8_t pos_y, int length);
+	int flush_screen();
 
 	int add_battery_voltage(const battery_status_s &battery, uint8_t pos_x, uint8_t pos_y);
 	int add_consumed_mah(const battery_status_s &battery, uint8_t pos_x, uint8_t pos_y);
@@ -108,6 +110,8 @@ private:
 	osd::MessageDisplay _display{};
 	osd::Telemetry _telemetry{};
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1000000};
+	uint8_t _screen[OSD_CHARS_PER_ROW * OSD_NUM_ROWS_PAL] {};
+	uint8_t _displayed_screen[OSD_CHARS_PER_ROW * OSD_NUM_ROWS_PAL] {};
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::OSD_ATXXXX_CFG>) _param_osd_atxxxx_cfg,
