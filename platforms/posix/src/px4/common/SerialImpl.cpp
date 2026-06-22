@@ -221,7 +221,7 @@ bool SerialImpl::open()
 	_open = true;
 
 	if (_single_wire_mode) {
-		setSingleWireMode();
+		setSingleWireMode(_single_wire_pullup);
 	}
 
 	if (_swap_rx_tx_mode) {
@@ -505,15 +505,16 @@ bool SerialImpl::getSingleWireMode() const
 	return _single_wire_mode;
 }
 
-bool SerialImpl::setSingleWireMode()
+bool SerialImpl::setSingleWireMode(bool pullup)
 {
 #if defined(TIOCSSINGLEWIRE)
 
 	if (_open) {
-		ioctl(_serial_fd, TIOCSSINGLEWIRE, SER_SINGLEWIRE_ENABLED);
+		ioctl(_serial_fd, TIOCSSINGLEWIRE, SER_SINGLEWIRE_ENABLED | (pullup ? SER_SINGLEWIRE_PULLUP : 0));
 	}
 
 	_single_wire_mode = true;
+	_single_wire_pullup = pullup;
 	return true;
 #else
 	return false;

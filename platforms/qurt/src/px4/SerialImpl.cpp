@@ -386,9 +386,10 @@ bool SerialImpl::getSingleWireMode() const
 	return false;
 }
 
-bool SerialImpl::setSingleWireMode()
+bool SerialImpl::setSingleWireMode(bool pullup)
 {
 	// Qurt platform does not support single wire mode
+	(void)pullup;
 	return false;
 }
 

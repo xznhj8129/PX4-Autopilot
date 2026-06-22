@@ -233,7 +233,11 @@ bool SerialImpl::open()
 
 	// Do pin operations after port has been opened
 	if (_single_wire_mode) {
-		setSingleWireMode();
+		if (!setSingleWireMode(_single_wire_pullup)) {
+			PX4_ERR("TIOCSSINGLEWIRE failed on %s: %d", _port, errno);
+			close();
+			return false;
+		}
 	}
 
 	if (_swap_rx_tx_mode) {
@@ -524,15 +528,18 @@ bool SerialImpl::getSingleWireMode() const
 	return _single_wire_mode;
 }
 
-bool SerialImpl::setSingleWireMode()
+bool SerialImpl::setSingleWireMode(bool pullup)
 {
 #if defined(TIOCSSINGLEWIRE)
 
 	if (_open) {
-		ioctl(_serial_fd, TIOCSSINGLEWIRE, SER_SINGLEWIRE_ENABLED);
+		if (ioctl(_serial_fd, TIOCSSINGLEWIRE, SER_SINGLEWIRE_ENABLED | (pullup ? SER_SINGLEWIRE_PULLUP : 0)) != 0) {
+			return false;
+		}
 	}
 
 	_single_wire_mode = true;
+	_single_wire_pullup = pullup;
 	return true;
 #else
 	return false;

@@ -87,7 +87,7 @@ public:
 	bool setFlowcontrol(FlowControl flowcontrol);
 
 	bool getSingleWireMode() const;
-	bool setSingleWireMode();
+	bool setSingleWireMode(bool pullup = false);
 
 	bool getSwapRxTxMode() const;
 	bool setSwapRxTxMode();
