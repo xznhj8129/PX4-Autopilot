@@ -35,6 +35,7 @@
 
 #include "MessageDisplay.hpp"
 
+#include <px4_platform_common/px4_config.h>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/airspeed_validated.h>
 #include <uORB/topics/battery_status.h>
@@ -42,7 +43,9 @@
 #include <uORB/topics/input_rc.h>
 #include <uORB/topics/log_message.h>
 #include <uORB/topics/sensor_gps.h>
+#if defined(CONFIG_DRIVERS_VTX)
 #include <uORB/topics/vtx.h>
+#endif
 #include <uORB/topics/vehicle_air_data.h>
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_global_position.h>
@@ -91,7 +94,9 @@ struct TelemetryData {
 	input_rc_s input_rc{};
 	log_message_s log_message{};
 	sensor_gps_s gps{};
+#if defined(CONFIG_DRIVERS_VTX)
 	vtx_s vtx{};
+#endif
 	vehicle_air_data_s air_data{};
 	vehicle_attitude_s attitude{};
 	vehicle_global_position_s global_position{};
@@ -130,7 +135,9 @@ private:
 	uORB::Subscription _gps_sub{ORB_ID(vehicle_gps_position)};
 	uORB::Subscription _local_position_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _status_sub{ORB_ID(vehicle_status)};
+#if defined(CONFIG_DRIVERS_VTX)
 	uORB::Subscription _vtx_sub{ORB_ID(vtx)};
+#endif
 
 	TelemetryData _data{};
 	uint64_t _last_log_message_timestamp{0};

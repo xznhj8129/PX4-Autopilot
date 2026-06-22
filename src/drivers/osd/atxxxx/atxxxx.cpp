@@ -622,6 +622,7 @@ OSDatxxxx::update_screen()
 		}
 	}
 
+#if defined(CONFIG_DRIVERS_VTX)
 	if (enabled(osd::Symbol::VtxInfo)) {
 		if (telemetry.vtx.timestamp != 0 && telemetry.vtx.band >= 0 && telemetry.vtx.channel >= 0 &&
 		    telemetry.vtx.power_level >= 0 && telemetry.vtx.band_letter != 0) {
@@ -653,6 +654,7 @@ OSDatxxxx::update_screen()
 			clear_line(_param_osd_vtx_power_x.get(), _param_osd_vtx_power_y.get(), 12);
 		}
 	}
+#endif
 
 	if (enabled(osd::Symbol::FlightTime)) {
 		ret |= add_flighttime(_telemetry.flight_time_s(), _param_osd_ftime_x.get(), _param_osd_ftime_y.get());
