@@ -42,6 +42,7 @@
 #include <uORB/topics/input_rc.h>
 #include <uORB/topics/log_message.h>
 #include <uORB/topics/sensor_gps.h>
+#include <uORB/topics/vtx.h>
 #include <uORB/topics/vehicle_air_data.h>
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_global_position.h>
@@ -78,6 +79,9 @@ enum class Symbol : uint8_t {
 	StatusMessage = 23,
 	ArtificialHorizon = 24,
 	Heading = 25,
+	VtxInfo = 26,
+	VtxFrequency = 27,
+	VtxPower = 28,
 };
 
 struct TelemetryData {
@@ -87,6 +91,7 @@ struct TelemetryData {
 	input_rc_s input_rc{};
 	log_message_s log_message{};
 	sensor_gps_s gps{};
+	vtx_s vtx{};
 	vehicle_air_data_s air_data{};
 	vehicle_attitude_s attitude{};
 	vehicle_global_position_s global_position{};
@@ -125,6 +130,7 @@ private:
 	uORB::Subscription _gps_sub{ORB_ID(vehicle_gps_position)};
 	uORB::Subscription _local_position_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _status_sub{ORB_ID(vehicle_status)};
+	uORB::Subscription _vtx_sub{ORB_ID(vtx)};
 
 	TelemetryData _data{};
 	uint64_t _last_log_message_timestamp{0};

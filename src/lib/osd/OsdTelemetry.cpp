@@ -57,6 +57,7 @@ void Telemetry::update()
 	_global_position_sub.update(&_data.global_position);
 	_gps_sub.update(&_data.gps);
 	_local_position_sub.update(&_data.local_position);
+	_vtx_sub.update(&_data.vtx);
 
 	vehicle_attitude_s attitude{};
 

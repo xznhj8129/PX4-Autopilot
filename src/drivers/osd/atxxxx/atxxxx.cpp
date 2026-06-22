@@ -622,6 +622,38 @@ OSDatxxxx::update_screen()
 		}
 	}
 
+	if (enabled(osd::Symbol::VtxInfo)) {
+		if (telemetry.vtx.timestamp != 0 && telemetry.vtx.band >= 0 && telemetry.vtx.channel >= 0 &&
+		    telemetry.vtx.power_level >= 0 && telemetry.vtx.band_letter != 0) {
+			snprintf(buf, sizeof(buf), "VTX %c:%d:%d", telemetry.vtx.band_letter, telemetry.vtx.channel + 1,
+				 telemetry.vtx.power_level + 1);
+			ret |= add_string_to_screen(buf, _param_osd_vtx_info_x.get(), _param_osd_vtx_info_y.get(), 11);
+
+		} else {
+			clear_line(_param_osd_vtx_info_x.get(), _param_osd_vtx_info_y.get(), 11);
+		}
+	}
+
+	if (enabled(osd::Symbol::VtxFrequency)) {
+		if (telemetry.vtx.timestamp != 0 && telemetry.vtx.frequency > 0) {
+			snprintf(buf, sizeof(buf), "VTF: %huM", telemetry.vtx.frequency);
+			ret |= add_string_to_screen(buf, _param_osd_vtx_freq_x.get(), _param_osd_vtx_freq_y.get(), 11);
+
+		} else {
+			clear_line(_param_osd_vtx_freq_x.get(), _param_osd_vtx_freq_y.get(), 11);
+		}
+	}
+
+	if (enabled(osd::Symbol::VtxPower)) {
+		if (telemetry.vtx.timestamp != 0 && telemetry.vtx.power > 0) {
+			snprintf(buf, sizeof(buf), "VTW: %hiMW", telemetry.vtx.power);
+			ret |= add_string_to_screen(buf, _param_osd_vtx_power_x.get(), _param_osd_vtx_power_y.get(), 12);
+
+		} else {
+			clear_line(_param_osd_vtx_power_x.get(), _param_osd_vtx_power_y.get(), 12);
+		}
+	}
+
 	if (enabled(osd::Symbol::FlightTime)) {
 		ret |= add_flighttime(_telemetry.flight_time_s(), _param_osd_ftime_x.get(), _param_osd_ftime_y.get());
 	}

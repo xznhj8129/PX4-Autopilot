@@ -312,6 +312,7 @@ void VTX::handle_uorb()
 	msg.band = _band;
 	msg.channel = _channel;
 	msg.power_level = _power;
+	msg.power = vtxtable().power_value(_power);
 	msg.device = _device;
 
 	if (!_comms_ok || !_protocol->copy_to(&msg)) {

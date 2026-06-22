@@ -165,6 +165,12 @@ private:
 		(ParamInt<px4::params::OSD_GPS_LAT_Y>) _param_osd_gps_lat_y,
 		(ParamInt<px4::params::OSD_GPS_LON_X>) _param_osd_gps_lon_x,
 		(ParamInt<px4::params::OSD_GPS_LON_Y>) _param_osd_gps_lon_y,
+		(ParamInt<px4::params::OSD_VTX_INFO_X>) _param_osd_vtx_info_x,
+		(ParamInt<px4::params::OSD_VTX_INFO_Y>) _param_osd_vtx_info_y,
+		(ParamInt<px4::params::OSD_VTX_FREQ_X>) _param_osd_vtx_freq_x,
+		(ParamInt<px4::params::OSD_VTX_FREQ_Y>) _param_osd_vtx_freq_y,
+		(ParamInt<px4::params::OSD_VTX_POWER_X>) _param_osd_vtx_power_x,
+		(ParamInt<px4::params::OSD_VTX_POWER_Y>) _param_osd_vtx_power_y,
 		(ParamInt<px4::params::OSD_CAM_VFOV>) _param_osd_cam_vfov,
 		(ParamInt<px4::params::OSD_CAM_HFOV>) _param_osd_cam_hfov,
 		(ParamInt<px4::params::OSD_CAM_UPT>) _param_osd_cam_upt

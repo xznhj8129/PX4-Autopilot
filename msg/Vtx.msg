@@ -29,4 +29,5 @@ uint8[12] band_name # Band name in ASCII without null termination
 
 # Also 0-indexed, but the user expects a 1-indexed display!
 int8 power_level     # Current power level (0-15), negative values indicate unknown
+int16 power          # Configured power in mW, zero indicates unknown
 uint8[4] power_label # Current power label in ASCII without null termination
