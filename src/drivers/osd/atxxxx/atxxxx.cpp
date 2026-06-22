@@ -42,6 +42,11 @@
 #include "atxxxx.h"
 #include "symbols.h"
 
+#include <lib/mathlib/mathlib.h>
+#include <matrix/math.hpp>
+
+#include <ctype.h>
+
 using namespace time_literals;
 
 static constexpr uint32_t OSD_UPDATE_RATE{50_ms};	// 20 Hz
@@ -51,6 +56,8 @@ OSDatxxxx::OSDatxxxx(const I2CSPIDriverConfig &config) :
 	ModuleParams(nullptr),
 	I2CSPIDriver(config)
 {
+	_display.set_period(_param_osd_scroll_rate.get() * 1000ULL);
+	_display.set_dwell(_param_osd_dwell_time.get() * 1000ULL);
 }
 
 int
@@ -75,14 +82,9 @@ OSDatxxxx::init()
 		return ret;
 	}
 
-	// clear the screen
-	int num_rows = (_param_osd_atxxxx_cfg.get() == 1 ? OSD_NUM_ROWS_NTSC : OSD_NUM_ROWS_PAL);
-
-	for (int i = 0; i < OSD_CHARS_PER_ROW; i++) {
-		for (int j = 0; j < num_rows; j++) {
-			add_character_to_screen(' ', i, j);
-		}
-	}
+	memset(_screen, ' ', sizeof(_screen));
+	memset(_displayed_screen, 0xff, sizeof(_displayed_screen));
+	ret = flush_screen();
 
 	if (ret == PX4_OK) {
 		start();
@@ -171,14 +173,14 @@ OSDatxxxx::writeRegister(unsigned reg, uint8_t data)
 }
 
 int
-OSDatxxxx::add_character_to_screen(char c, uint8_t pos_x, uint8_t pos_y)
+OSDatxxxx::write_character_to_screen(uint8_t c, uint8_t pos_x, uint8_t pos_y)
 {
 	uint16_t position = (OSD_CHARS_PER_ROW * pos_y) + pos_x;
 	uint8_t position_lsb = 0;
 	int ret = PX4_ERROR;
 
 	if (position > 0xFF) {
-		position_lsb = static_cast<uint8_t>(position) - 0xFF;
+		position_lsb = static_cast<uint8_t>(position & 0xff);
 		ret = writeRegister(0x05, 0x01); //DMAH
 
 	} else {
@@ -201,29 +203,32 @@ OSDatxxxx::add_character_to_screen(char c, uint8_t pos_x, uint8_t pos_y)
 	return ret;
 }
 
-void
-OSDatxxxx::add_string_to_screen_centered(const char *str, uint8_t pos_y, int max_length)
+int
+OSDatxxxx::add_character_to_screen(char c, uint8_t pos_x, uint8_t pos_y)
 {
-	int len = strlen(str);
-
-	if (len > max_length) {
-		len = max_length;
+	if (pos_x >= OSD_CHARS_PER_ROW || pos_y >= OSD_NUM_ROWS_PAL) {
+		return PX4_ERROR;
 	}
 
-	int pos = (OSD_CHARS_PER_ROW - max_length) / 2;
-	int before = (max_length - len) / 2;
+	_screen[OSD_CHARS_PER_ROW * pos_y + pos_x] = static_cast<uint8_t>(c);
+	return PX4_OK;
+}
 
-	for (int i = 0; i < before; ++i) {
-		add_character_to_screen(' ', pos++, pos_y);
+int
+OSDatxxxx::add_string_to_screen(const char *str, uint8_t pos_x, uint8_t pos_y, int width)
+{
+	int i = 0;
+	int ret = PX4_OK;
+
+	for (; i < width && str[i] != '\0'; ++i) {
+		ret |= add_character_to_screen(str[i], pos_x + i, pos_y);
 	}
 
-	for (int i = 0; i < len; ++i) {
-		add_character_to_screen(str[i], pos++, pos_y);
+	for (; i < width; ++i) {
+		ret |= add_character_to_screen(' ', pos_x + i, pos_y);
 	}
 
-	while (pos < (OSD_CHARS_PER_ROW + max_length) / 2) {
-		add_character_to_screen(' ', pos++, pos_y);
-	}
+	return ret;
 }
 
 void
@@ -235,66 +240,95 @@ OSDatxxxx::clear_line(uint8_t pos_x, uint8_t pos_y, int length)
 }
 
 int
-OSDatxxxx::add_battery_info(uint8_t pos_x, uint8_t pos_y)
+OSDatxxxx::flush_screen()
 {
-	char buf[10];
 	int ret = PX4_OK;
+	const int num_rows = _param_osd_atxxxx_cfg.get() == 1 ? OSD_NUM_ROWS_NTSC : OSD_NUM_ROWS_PAL;
 
-	// TODO: show battery symbol based on battery fill level
-	snprintf(buf, sizeof(buf), "%c%5.2f", OSD_SYMBOL_BATT_3, (double)_battery_voltage_v);
-	buf[sizeof(buf) - 1] = '\0';
+	for (int y = 0; y < num_rows; ++y) {
+		for (int x = 0; x < OSD_CHARS_PER_ROW; ++x) {
+			const int position = OSD_CHARS_PER_ROW * y + x;
 
-	for (int i = 0; buf[i] != '\0'; i++) {
-		ret |= add_character_to_screen(buf[i], pos_x + i, pos_y);
+			if (_screen[position] != _displayed_screen[position]) {
+				const int write_ret = write_character_to_screen(_screen[position], x, y);
+				ret |= write_ret;
+
+				if (write_ret == PX4_OK) {
+					_displayed_screen[position] = _screen[position];
+				}
+			}
+		}
 	}
-
-	ret |= add_character_to_screen('V', pos_x + 5, pos_y);
-
-	pos_y++;
-	pos_x++;
-
-	snprintf(buf, sizeof(buf), "%5d", (int)_battery_discharge_mah);
-	buf[sizeof(buf) - 1] = '\0';
-
-	for (int i = 0; buf[i] != '\0'; i++) {
-		ret |= add_character_to_screen(buf[i], pos_x + i, pos_y);
-	}
-
-	ret |= add_character_to_screen(OSD_SYMBOL_MAH, pos_x + 5, pos_y);
 
 	return ret;
 }
 
 int
-OSDatxxxx::add_altitude(uint8_t pos_x, uint8_t pos_y)
+OSDatxxxx::add_battery_voltage(const battery_status_s &battery, uint8_t pos_x, uint8_t pos_y)
 {
-	char buf[16];
-	int ret = PX4_OK;
+	char buf[10];
+	char batt_symbol = OSD_SYMBOL_BATT_EMPTY;
 
-	snprintf(buf, sizeof(buf), "%c%5.2f%c", OSD_SYMBOL_ARROW_NORTH, (double)_local_position_z, OSD_SYMBOL_M);
-	buf[sizeof(buf) - 1] = '\0';
+	if (battery.remaining >= 0.875f) {
+		batt_symbol = OSD_SYMBOL_BATT_FULL;
 
-	for (int i = 0; buf[i] != '\0'; i++) {
-		ret |= add_character_to_screen(buf[i], pos_x + i, pos_y);
+	} else if (battery.remaining >= 0.625f) {
+		batt_symbol = OSD_SYMBOL_BATT_5;
+
+	} else if (battery.remaining >= 0.375f) {
+		batt_symbol = OSD_SYMBOL_BATT_4;
+
+	} else if (battery.remaining >= 0.25f) {
+		batt_symbol = OSD_SYMBOL_BATT_3;
+
+	} else if (battery.remaining >= 0.125f) {
+		batt_symbol = OSD_SYMBOL_BATT_2;
+
+	} else if (battery.remaining >= 0.f) {
+		batt_symbol = OSD_SYMBOL_BATT_1;
 	}
 
-	return ret;
+	snprintf(buf, sizeof(buf), "%c%5.2f", batt_symbol, (double)battery.voltage_v);
+	buf[sizeof(buf) - 1] = '\0';
+
+	buf[6] = 'V';
+	buf[7] = '\0';
+
+	return add_string_to_screen(buf, pos_x, pos_y, 7);
+}
+
+int
+OSDatxxxx::add_consumed_mah(const battery_status_s &battery, uint8_t pos_x, uint8_t pos_y)
+{
+	char buf[7];
+
+	snprintf(buf, sizeof(buf), "%5d", (int)battery.discharged_mah);
+	buf[5] = OSD_SYMBOL_MAH;
+	buf[6] = '\0';
+
+	return add_string_to_screen(buf, pos_x, pos_y, 6);
+}
+
+int
+OSDatxxxx::add_altitude(const vehicle_local_position_s &local_position, uint8_t pos_x, uint8_t pos_y)
+{
+	char buf[16];
+
+	snprintf(buf, sizeof(buf), "%c%5.1f%c", OSD_SYMBOL_ARROW_NORTH, (double) - local_position.z, OSD_SYMBOL_M);
+	buf[sizeof(buf) - 1] = '\0';
+
+	return add_string_to_screen(buf, pos_x, pos_y, 9);
 }
 
 int
 OSDatxxxx::add_flighttime(float flight_time, uint8_t pos_x, uint8_t pos_y)
 {
 	char buf[10];
-	int ret = PX4_OK;
 
 	snprintf(buf, sizeof(buf), "%c%5.1f", OSD_SYMBOL_FLIGHT_TIME, (double)flight_time);
 	buf[sizeof(buf) - 1] = '\0';
 
-	for (int i = 0; buf[i] != '\0'; i++) {
-		ret |= add_character_to_screen(buf[i], pos_x + i, pos_y);
-	}
-
-	return ret;
+	return add_string_to_screen(buf, pos_x, pos_y, 7);
 }
 
 int
@@ -322,149 +356,292 @@ OSDatxxxx::disable_screen()
 }
 
 int
-OSDatxxxx::update_topics()
-{
-	/* update battery subscription */
-	if (_battery_sub.updated()) {
-		battery_status_s battery{};
-		_battery_sub.copy(&battery);
-
-		if (battery.connected) {
-			_battery_voltage_v = battery.voltage_v;
-			_battery_discharge_mah = battery.discharged_mah;
-			_battery_valid = true;
-
-		} else {
-			_battery_valid = false;
-		}
-	}
-
-	/* update vehicle local position subscription */
-	if (_local_position_sub.updated()) {
-		vehicle_local_position_s local_position{};
-		_local_position_sub.copy(&local_position);
-
-		_local_position_valid = local_position.z_valid;
-
-		if (_local_position_valid) {
-			_local_position_z = -local_position.z;
-		}
-	}
-
-	/* update vehicle status subscription */
-	if (_vehicle_status_sub.updated()) {
-		vehicle_status_s vehicle_status{};
-		_vehicle_status_sub.copy(&vehicle_status);
-
-		if (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED &&
-		    _arming_state != vehicle_status_s::ARMING_STATE_ARMED) {
-			// arming
-			_arming_timestamp = hrt_absolute_time();
-
-		} else if (vehicle_status.arming_state != vehicle_status_s::ARMING_STATE_ARMED &&
-			   _arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
-			// disarming
-		}
-
-		_arming_state = vehicle_status.arming_state;
-		_nav_state = vehicle_status.nav_state;
-	}
-
-	return PX4_OK;
-}
-
-const char *
-OSDatxxxx::get_flight_mode(uint8_t nav_state)
-{
-	const char *flight_mode = "UNKNOWN";
-
-	switch (nav_state) {
-	case vehicle_status_s::NAVIGATION_STATE_MANUAL:
-		flight_mode = "MANUAL";
-		break;
-
-	case vehicle_status_s::NAVIGATION_STATE_ALTCTL:
-		flight_mode = "ALTITUDE";
-		break;
-
-	case vehicle_status_s::NAVIGATION_STATE_ALTITUDE_CRUISE:
-		flight_mode = "CRUISE";
-		break;
-
-	case vehicle_status_s::NAVIGATION_STATE_POSCTL:
-		flight_mode = "POSITION";
-		break;
-
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_RTL:
-		flight_mode = "RETURN";
-		break;
-
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION:
-		flight_mode = "MISSION";
-		break;
-
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER:
-	case vehicle_status_s::NAVIGATION_STATE_DESCEND:
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_TAKEOFF:
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_LAND:
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
-	case vehicle_status_s::NAVIGATION_STATE_AUTO_PRECLAND:
-		flight_mode = "AUTO";
-		break;
-
-	case vehicle_status_s::NAVIGATION_STATE_ACRO:
-		flight_mode = "ACRO";
-		break;
-
-	case vehicle_status_s::NAVIGATION_STATE_TERMINATION:
-		flight_mode = "TERMINATE";
-		break;
-
-	case vehicle_status_s::NAVIGATION_STATE_OFFBOARD:
-		flight_mode = "OFFBOARD";
-		break;
-
-	case vehicle_status_s::NAVIGATION_STATE_STAB:
-		flight_mode = "STABILIZED";
-		break;
-	}
-
-	return flight_mode;
-}
-
-int
 OSDatxxxx::update_screen()
 {
 	int ret = PX4_OK;
+	const osd::TelemetryData &telemetry = _telemetry.data();
+	const int num_rows = _param_osd_atxxxx_cfg.get() == 1 ? OSD_NUM_ROWS_NTSC : OSD_NUM_ROWS_PAL;
+	char buf[16] {};
+	const int horizon_x = _param_osd_ah_x.get();
+	const int horizon_y = _param_osd_ah_y.get();
+	memset(_screen, ' ', sizeof(_screen));
 
-	if (_battery_valid) {
-		ret |= add_battery_info(1, 1);
+	if (enabled(osd::Symbol::ArtificialHorizon)) {
+		if (telemetry.attitude_valid) {
+			float roll = -0.5f * matrix::wrap_pi(telemetry.roll_rad);
 
-	} else {
-		clear_line(1, 1, 10);
-		clear_line(1, 2, 10);
+			if (roll > M_PI_2_F) {
+				roll -= M_PI_F;
+
+			} else if (roll < -M_PI_2_F) {
+				roll += M_PI_F;
+			}
+
+			const float camera_pitch = telemetry.pitch_rad + math::radians(static_cast<float>(_param_osd_cam_upt.get()));
+			const float half_vertical_fov = math::radians(static_cast<float>(_param_osd_cam_vfov.get())) * 0.5f;
+			const float half_horizontal_fov = math::radians(static_cast<float>(_param_osd_cam_hfov.get())) * 0.5f;
+
+			if (fabsf(camera_pitch) < M_PI_2_F) {
+				const float screen_height_subrows = num_rows * 9.f;
+				const float pitch_subrows = tanf(camera_pitch) / tanf(half_vertical_fov) * screen_height_subrows * 0.5f;
+				const float subrows_per_column = screen_height_subrows / OSD_CHARS_PER_ROW *
+								 tanf(half_horizontal_fov) / tanf(half_vertical_fov);
+				const float sin_roll = sinf(roll);
+				const float cos_roll = cosf(roll);
+
+				if (fabsf(cos_roll) >= fabsf(sin_roll)) {
+					for (int x = -4; x <= 4; ++x) {
+						const int subrow = lroundf(pitch_subrows + sin_roll / cos_roll * x * subrows_per_column);
+						const int row_offset = floorf(static_cast<float>(subrow) / 9.f);
+						const int glyph_offset = subrow - row_offset * 9;
+
+						if (horizon_y + row_offset >= 0 && horizon_y + row_offset < num_rows) {
+							ret |= add_character_to_screen(OSD_SYMBOL_AH_BAR9_0 + glyph_offset, horizon_x + x,
+										       horizon_y + row_offset);
+						}
+					}
+
+				} else {
+					for (int y = -horizon_y; y < num_rows - horizon_y; ++y) {
+						const int x = lroundf((y * 9.f - pitch_subrows) * cos_roll /
+								      (sin_roll * subrows_per_column));
+
+						if (x >= -4 && x <= 4) {
+							ret |= add_character_to_screen('|', horizon_x + x, horizon_y + y);
+						}
+					}
+				}
+			}
+		}
 	}
 
-	if (_local_position_valid) {
-		ret |= add_altitude(1, 3);
-
-	} else {
-		clear_line(1, 3, 10);
+	if (enabled(osd::Symbol::Crosshairs)) {
+		const int crosshair_x = _param_osd_cross_x.get();
+		const int crosshair_y = _param_osd_cross_y.get();
+		ret |= add_character_to_screen(OSD_SYMBOL_AH_CENTER, crosshair_x, crosshair_y);
 	}
 
-	const char *flight_mode = "";
+	if (enabled(osd::Symbol::MainBatteryVoltage)) {
+		if (telemetry.battery_valid) {
+			ret |= add_battery_voltage(telemetry.battery, _param_osd_bat_volt_x.get(), _param_osd_bat_volt_y.get());
 
-	if (_arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
-		float flight_time_sec = static_cast<float>((hrt_absolute_time() - _arming_timestamp) / (1e6f));
-		ret |= add_flighttime(flight_time_sec, 1, 14);
-
-	} else {
-		flight_mode = get_flight_mode(_nav_state);
+		} else {
+			clear_line(_param_osd_bat_volt_x.get(), _param_osd_bat_volt_y.get(), 7);
+		}
 	}
 
-	add_string_to_screen_centered(flight_mode, 12, 10);
+	if (enabled(osd::Symbol::MahDrawn)) {
+		if (telemetry.battery_valid) {
+			ret |= add_consumed_mah(telemetry.battery, _param_osd_mah_x.get(), _param_osd_mah_y.get());
 
+		} else {
+			clear_line(_param_osd_mah_x.get(), _param_osd_mah_y.get(), 6);
+		}
+	}
+
+	if (enabled(osd::Symbol::AverageCellVoltage)) {
+		if (telemetry.battery_valid && telemetry.battery.cell_count > 0) {
+			snprintf(buf, sizeof(buf), "C%4.2fV", (double)(telemetry.battery.voltage_v / telemetry.battery.cell_count));
+			ret |= add_string_to_screen(buf, _param_osd_cell_v_x.get(), _param_osd_cell_v_y.get(), 7);
+
+		} else {
+			clear_line(_param_osd_cell_v_x.get(), _param_osd_cell_v_y.get(), 7);
+		}
+	}
+
+	if (enabled(osd::Symbol::CurrentDraw)) {
+		if (telemetry.battery_valid && PX4_ISFINITE(telemetry.battery.current_a)) {
+			snprintf(buf, sizeof(buf), "%c%4.1fA", OSD_SYMBOL_AMP, (double)telemetry.battery.current_a);
+			ret |= add_string_to_screen(buf, _param_osd_current_x.get(), _param_osd_current_y.get(), 6);
+
+		} else {
+			clear_line(_param_osd_current_x.get(), _param_osd_current_y.get(), 6);
+		}
+	}
+
+	if (enabled(osd::Symbol::Power)) {
+		if (telemetry.battery_valid && PX4_ISFINITE(telemetry.battery.current_a)) {
+			snprintf(buf, sizeof(buf), "%c%4.0fW", OSD_SYMBOL_WATT,
+				 (double)(telemetry.battery.voltage_v * telemetry.battery.current_a));
+			ret |= add_string_to_screen(buf, _param_osd_power_x.get(), _param_osd_power_y.get(), 6);
+
+		} else {
+			clear_line(_param_osd_power_x.get(), _param_osd_power_y.get(), 6);
+		}
+	}
+
+	if (enabled(osd::Symbol::Rssi)) {
+		if (telemetry.input_rc.link_quality >= 0) {
+			snprintf(buf, sizeof(buf), "%c%3d%%", OSD_SYMBOL_RSSI, telemetry.input_rc.link_quality);
+			ret |= add_string_to_screen(buf, _param_osd_rssi_x.get(), _param_osd_rssi_y.get(), 6);
+
+		} else {
+			clear_line(_param_osd_rssi_x.get(), _param_osd_rssi_y.get(), 6);
+		}
+	}
+
+	if (enabled(osd::Symbol::GpsSatellites)) {
+		if (telemetry.gps.fix_type >= sensor_gps_s::FIX_TYPE_2D) {
+			snprintf(buf, sizeof(buf), "%c%c%2d", OSD_SYMBOL_SAT_L, OSD_SYMBOL_SAT_R,
+				 telemetry.gps.satellites_used);
+			ret |= add_string_to_screen(buf, _param_osd_gps_sat_x.get(), _param_osd_gps_sat_y.get(), 4);
+
+		} else {
+			ret |= add_string_to_screen("GPS?", _param_osd_gps_sat_x.get(), _param_osd_gps_sat_y.get(), 4);
+		}
+
+	}
+
+	if (enabled(osd::Symbol::GpsSpeed)) {
+		if (telemetry.gps.fix_type >= sensor_gps_s::FIX_TYPE_2D) {
+			snprintf(buf, sizeof(buf), "%3.0f", (double)telemetry.gps.vel_m_s);
+			ret |= add_string_to_screen(buf, _param_osd_gps_spd_x.get(), _param_osd_gps_spd_y.get(), 4);
+
+		} else {
+			clear_line(_param_osd_gps_spd_x.get(), _param_osd_gps_spd_y.get(), 4);
+		}
+	}
+
+	if (enabled(osd::Symbol::GpsLatitude)) {
+		if (telemetry.gps.fix_type >= sensor_gps_s::FIX_TYPE_2D) {
+			snprintf(buf, sizeof(buf), "LAT%+.5f", telemetry.gps.latitude_deg);
+			ret |= add_string_to_screen(buf, _param_osd_gps_lat_x.get(), _param_osd_gps_lat_y.get(), 13);
+
+		} else {
+			clear_line(_param_osd_gps_lat_x.get(), _param_osd_gps_lat_y.get(), 13);
+		}
+	}
+
+	if (enabled(osd::Symbol::GpsLongitude)) {
+		if (telemetry.gps.fix_type >= sensor_gps_s::FIX_TYPE_2D) {
+			snprintf(buf, sizeof(buf), "LON%+.5f", telemetry.gps.longitude_deg);
+			ret |= add_string_to_screen(buf, _param_osd_gps_lon_x.get(), _param_osd_gps_lon_y.get(), 14);
+
+		} else {
+			clear_line(_param_osd_gps_lon_x.get(), _param_osd_gps_lon_y.get(), 14);
+		}
+	}
+
+	if (enabled(osd::Symbol::Altitude)) {
+		if (telemetry.local_position.z_valid) {
+			ret |= add_altitude(telemetry.local_position, _param_osd_alt_x.get(), _param_osd_alt_y.get());
+
+		} else {
+			clear_line(_param_osd_alt_x.get(), _param_osd_alt_y.get(), 9);
+		}
+	}
+
+	if (enabled(osd::Symbol::NumericalVario)) {
+		if (telemetry.local_position.v_z_valid) {
+			snprintf(buf, sizeof(buf), "V%+4.1f", (double) - telemetry.local_position.vz);
+			ret |= add_string_to_screen(buf, _param_osd_vario_x.get(), _param_osd_vario_y.get(), 7);
+
+		} else {
+			clear_line(_param_osd_vario_x.get(), _param_osd_vario_y.get(), 7);
+		}
+	}
+
+	if (enabled(osd::Symbol::PitchAngle)) {
+		if (telemetry.attitude_valid) {
+			snprintf(buf, sizeof(buf), "P%+4.0f", (double)math::degrees(telemetry.pitch_rad));
+			ret |= add_string_to_screen(buf, _param_osd_pitch_x.get(), _param_osd_pitch_y.get(), 6);
+
+		} else {
+			clear_line(_param_osd_pitch_x.get(), _param_osd_pitch_y.get(), 6);
+		}
+	}
+
+	if (enabled(osd::Symbol::RollAngle)) {
+		if (telemetry.attitude_valid) {
+			snprintf(buf, sizeof(buf), "R%+4.0f", (double)math::degrees(telemetry.roll_rad));
+			ret |= add_string_to_screen(buf, _param_osd_roll_x.get(), _param_osd_roll_y.get(), 6);
+
+		} else {
+			clear_line(_param_osd_roll_x.get(), _param_osd_roll_y.get(), 6);
+		}
+	}
+
+	if (enabled(osd::Symbol::HomeDirection)) {
+		if (telemetry.home_valid && telemetry.attitude_valid) {
+			const float relative_bearing = matrix::wrap_pi(telemetry.home_bearing_rad - telemetry.yaw_rad);
+			const int arrow_index = (8 + static_cast<int>(lroundf(relative_bearing * 8.f / M_PI_F)) + 16) % 16;
+			ret |= add_character_to_screen(OSD_SYMBOL_ARROW_SOUTH + arrow_index,
+						       _param_osd_home_dir_x.get(), _param_osd_home_dir_y.get());
+
+		} else {
+			clear_line(_param_osd_home_dir_x.get(), _param_osd_home_dir_y.get(), 1);
+		}
+	}
+
+	if (enabled(osd::Symbol::HomeDistance)) {
+		if (telemetry.home_valid) {
+			snprintf(buf, sizeof(buf), "%4.0f%c", (double)telemetry.home_distance_m, OSD_SYMBOL_M);
+			ret |= add_string_to_screen(buf, _param_osd_home_dst_x.get(), _param_osd_home_dst_y.get(), 6);
+
+		} else {
+			clear_line(_param_osd_home_dst_x.get(), _param_osd_home_dst_y.get(), 6);
+		}
+	}
+
+	const char *flight_mode = _telemetry.flight_mode();
+
+	if (telemetry.status.timestamp == 0) {
+		flight_mode = "NO STATUS";
+	}
+
+	if (enabled(osd::Symbol::FlightMode)) {
+		strncpy(buf, flight_mode, sizeof(buf) - 1);
+		buf[sizeof(buf) - 1] = '\0';
+
+		for (int i = 0; buf[i] != '\0'; ++i) {
+			buf[i] = toupper(static_cast<unsigned char>(buf[i]));
+		}
+
+		ret |= add_string_to_screen(buf, _param_osd_mode_x.get(), _param_osd_mode_y.get(), 14);
+	}
+
+	if (enabled(osd::Symbol::Disarmed)) {
+		if (telemetry.status.timestamp != 0) {
+			const char *arming_state = telemetry.status.arming_state == vehicle_status_s::ARMING_STATE_ARMED
+						   ? "ARMED" : "DISARMED";
+			ret |= add_string_to_screen(arming_state, _param_osd_arm_x.get(), _param_osd_arm_y.get(), 8);
+
+		} else {
+			clear_line(_param_osd_arm_x.get(), _param_osd_arm_y.get(), 8);
+		}
+	}
+
+	if (enabled(osd::Symbol::Heading)) {
+		if (telemetry.attitude_valid) {
+			const int heading_deg = static_cast<int>(lroundf(math::degrees(telemetry.yaw_rad))) % 360;
+			snprintf(buf, sizeof(buf), "HDG%03d", heading_deg);
+			ret |= add_string_to_screen(buf, _param_osd_head_x.get(), _param_osd_head_y.get(), 6);
+
+		} else {
+			clear_line(_param_osd_head_x.get(), _param_osd_head_y.get(), 6);
+		}
+	}
+
+	if (enabled(osd::Symbol::FlightTime)) {
+		ret |= add_flighttime(_telemetry.flight_time_s(), _param_osd_ftime_x.get(), _param_osd_ftime_y.get());
+	}
+
+	_telemetry.update_message_display(_param_osd_log_level.get(), _display);
+	char message[FULL_MSG_BUFFER] {};
+	_display.get(message, hrt_absolute_time());
+
+	if (enabled(osd::Symbol::StatusMessage)) {
+		ret |= add_string_to_screen(message, _param_osd_status_x.get(), _param_osd_status_y.get(), FULL_MSG_LENGTH);
+	}
+
+	ret |= flush_screen();
 	return ret;
+}
+
+bool
+OSDatxxxx::enabled(osd::Symbol symbol) const
+{
+	return _param_osd_symbols.get() & (1u << static_cast<uint8_t>(symbol));
 }
 
 int
@@ -484,8 +661,16 @@ OSDatxxxx::RunImpl()
 		return;
 	}
 
-	update_topics();
+	if (_parameter_update_sub.updated()) {
+		parameter_update_s parameter_update{};
+		_parameter_update_sub.copy(&parameter_update);
+		updateParams();
+		_display.set_period(_param_osd_scroll_rate.get() * 1000ULL);
+		_display.set_dwell(_param_osd_dwell_time.get() * 1000ULL);
 
+	}
+
+	_telemetry.update();
 	update_screen();
 }
 

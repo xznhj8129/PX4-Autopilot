@@ -40,7 +40,6 @@
 #include <drivers/drv_hrt.h>
 #include <lib/geo/geo.h>
 #include <lib/mathlib/mathlib.h>
-#include <lib/modes/ui.hpp>
 #include <matrix/math.hpp>
 
 // clock access
@@ -61,91 +60,6 @@ typedef enum {
 	MSP_DP_SYS = 6,             // Display system element displayportSystemElement_e at given coordinates
 	MSP_DP_COUNT,
 } displayportMspSubCommand;
-
-msp_name_t construct_display_message(const vehicle_status_s &vehicle_status,
-				     const vehicle_attitude_s &vehicle_attitude,
-				     const log_message_s &log_message,
-				     const int log_level,
-				     MessageDisplay &display)
-{
-	// initialize result
-	msp_name_t display_message {0};
-
-	const auto now = hrt_absolute_time();
-	static uint64_t last_warning_stamp {0};
-
-	// update arming state, flight mode, and warnings, if current
-	if (vehicle_status.timestamp < (now - 1_s)) {
-		display.set(MessageDisplayType::ARMING, "???");
-		display.set(MessageDisplayType::FLIGHT_MODE, "???");
-
-	} else {
-		// display armed / disarmed
-		if (vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
-			display.set(MessageDisplayType::ARMING, "ARM");
-
-		} else {
-			display.set(MessageDisplayType::ARMING, "DSRM");
-		}
-
-		// display flight mode
-		display.set(MessageDisplayType::FLIGHT_MODE, mode_util::nav_state_names[vehicle_status.nav_state]);
-	}
-
-	// display, if updated
-	if (log_message.severity <= log_level) {
-		display.set(MessageDisplayType::WARNING, log_message.text);
-		last_warning_stamp = now;
-
-	} else if (now - last_warning_stamp > 30_s) {
-		// clear warning after timeout
-		display.set(MessageDisplayType::WARNING, "");
-		last_warning_stamp = now;
-	}
-
-	// update heading, if relatively recent
-	if (vehicle_attitude.timestamp < (now - 1_s)) {
-		display.set(MessageDisplayType::HEADING, "N?");
-
-	} else {
-		// convert to YAW
-		matrix::Eulerf euler_attitude(matrix::Quatf(vehicle_attitude.q));
-		const auto yaw = math::degrees(euler_attitude.psi());
-
-		// display north direction
-		if (yaw <= 22.5f) {
-			display.set(MessageDisplayType::HEADING, "N");
-
-		} else if (yaw <= 67.5f) {
-			display.set(MessageDisplayType::HEADING, "NE");
-
-		} else if (yaw <= 112.5f) {
-			display.set(MessageDisplayType::HEADING, "E");
-
-		} else if (yaw <= 157.5f) {
-			display.set(MessageDisplayType::HEADING, "SE");
-
-		} else if (yaw <= 202.5f) {
-			display.set(MessageDisplayType::HEADING, "S");
-
-		} else if (yaw <= 247.5f) {
-			display.set(MessageDisplayType::HEADING, "SW");
-
-		} else if (yaw <= 292.5f) {
-			display.set(MessageDisplayType::HEADING, "W");
-
-		} else if (yaw <= 337.5f) {
-			display.set(MessageDisplayType::HEADING, "NW");
-
-		} else if (yaw <= 360.0f) {
-			display.set(MessageDisplayType::HEADING, "N");
-		}
-	}
-
-	// update message and return
-	display.get(display_message.craft_name, hrt_absolute_time());
-	return display_message;
-}
 
 msp_fc_variant_t construct_FC_VARIANT()
 {

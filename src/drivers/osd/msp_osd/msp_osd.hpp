@@ -38,25 +38,13 @@
 #include <px4_platform_common/module_params.h>
 #include <px4_platform_common/posix.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
+#include <lib/osd/MessageDisplay.hpp>
+#include <lib/osd/OsdTelemetry.hpp>
 #include <uORB/SubscriptionInterval.hpp>
 
-#include <uORB/Subscription.hpp>
-#include <uORB/topics/airspeed_validated.h>
-#include <uORB/topics/battery_status.h>
-#include <uORB/topics/home_position.h>
-#include <uORB/topics/input_rc.h>
-#include <uORB/topics/log_message.h>
 #include <uORB/topics/parameter_update.h>
-#include <uORB/topics/sensor_combined.h>
-#include <uORB/topics/sensor_gps.h>
-#include <uORB/topics/vehicle_air_data.h>
-#include <uORB/topics/vehicle_attitude.h>
-#include <uORB/topics/vehicle_global_position.h>
-#include <uORB/topics/vehicle_local_position.h>
-#include <uORB/topics/vehicle_status.h>
 
 #include "MspV1.hpp"
-#include "MessageDisplay/MessageDisplay.hpp"
 #include "uorb_to_msp.hpp"
 
 using namespace time_literals;
@@ -71,33 +59,6 @@ struct PerformanceData {
 	bool initialization_problems{false};
 	long unsigned int successful_sends{0};
 	long unsigned int unsuccessful_sends{0};
-};
-
-// mapping from symbol name to bit in the parameter bitmask
-//  @TODO investigate params; it seems like this should be available directly?
-enum SymbolIndex : uint8_t {
-	CRAFT_NAME		= 0,
-	DISARMED		= 1,
-	GPS_LAT			= 2,
-	GPS_LON			= 3,
-	GPS_SATS		= 4,
-	GPS_SPEED		= 5,
-	HOME_DIST		= 6,
-	HOME_DIR		= 7,
-	MAIN_BATT_VOLTAGE	= 8,
-	CURRENT_DRAW		= 9,
-	MAH_DRAWN		= 10,
-	RSSI_VALUE		= 11,
-	ALTITUDE		= 12,
-	NUMERICAL_VARIO		= 13,
-	FLYMODE			= 14,
-	ESC_TMP			= 15,
-	PITCH_ANGLE		= 16,
-	ROLL_ANGLE		= 17,
-	CROSSHAIRS		= 18,
-	AVG_CELL_VOLTAGE	= 19,
-	HORIZON_SIDEBARS	= 20,
-	POWER			= 21
 };
 
 class MspOsd : public ModuleBase<MspOsd>, public ModuleParams, public px4::ScheduledWorkItem
@@ -141,27 +102,15 @@ private:
 	void parameters_update();
 
 	// convenience function to check if a given symbol is enabled
-	bool enabled(const SymbolIndex &symbol);
+	bool enabled(osd::Symbol symbol);
 
 	MspV1 _msp{0};
 	int _msp_fd{-1};
 
-	msp_osd::MessageDisplay _display{};
+	osd::MessageDisplay _display{};
+	osd::Telemetry _telemetry{};
 
 	bool _is_initialized{false};
-
-	// subscriptions to desired vehicle display information
-	uORB::Subscription _airspeed_validated_sub{ORB_ID(airspeed_validated)};
-	uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
-	uORB::Subscription _home_position_sub{ORB_ID(home_position)};
-	uORB::Subscription _input_rc_sub{ORB_ID(input_rc)};
-	uORB::Subscription _log_message_sub{ORB_ID(log_message)};
-	uORB::Subscription _vehicle_air_data_sub{ORB_ID(vehicle_air_data)};
-	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
-	uORB::Subscription _vehicle_global_position_sub{ORB_ID(vehicle_global_position)};
-	uORB::Subscription _vehicle_gps_position_sub{ORB_ID(vehicle_gps_position)};
-	uORB::Subscription _vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
-	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 

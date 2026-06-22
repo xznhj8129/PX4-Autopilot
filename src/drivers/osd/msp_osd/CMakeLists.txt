@@ -31,8 +31,6 @@
 #
 ############################################################################
 
-add_subdirectory(MessageDisplay)
-
 px4_add_module(
 	MODULE drivers__osd__msp_osd
 	MAIN msp_osd
@@ -43,6 +41,6 @@ px4_add_module(
 	MODULE_CONFIG
 		module.yaml
 	DEPENDS
-		message_display
+		osd
 		px4_work_queue
 	)

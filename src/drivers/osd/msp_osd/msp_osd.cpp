@@ -166,31 +166,31 @@ void MspOsd::SendConfig()
 	msp_osd_config.overlay_radio_mode = 0;             //  0
 
 	// display conditional elements
-	msp_osd_config.osd_craft_name_pos = enabled(SymbolIndex::CRAFT_NAME) ? osd_craft_name_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_disarmed_pos = enabled(SymbolIndex::DISARMED) ? osd_disarmed_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_lat_pos = enabled(SymbolIndex::GPS_LAT) ? osd_gps_lat_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_lon_pos = enabled(SymbolIndex::GPS_LON) ? osd_gps_lon_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_sats_pos = enabled(SymbolIndex::GPS_SATS) ? osd_gps_sats_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_speed_pos = enabled(SymbolIndex::GPS_SPEED) ? osd_gps_speed_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_home_dist_pos = enabled(SymbolIndex::HOME_DIST) ? osd_home_dist_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_home_dir_pos = enabled(SymbolIndex::HOME_DIR) ? osd_home_dir_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_main_batt_voltage_pos = enabled(SymbolIndex::MAIN_BATT_VOLTAGE) ? osd_main_batt_voltage_pos :
+	msp_osd_config.osd_craft_name_pos = enabled(osd::Symbol::CraftName) ? osd_craft_name_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_disarmed_pos = enabled(osd::Symbol::Disarmed) ? osd_disarmed_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_gps_lat_pos = enabled(osd::Symbol::GpsLatitude) ? osd_gps_lat_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_gps_lon_pos = enabled(osd::Symbol::GpsLongitude) ? osd_gps_lon_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_gps_sats_pos = enabled(osd::Symbol::GpsSatellites) ? osd_gps_sats_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_gps_speed_pos = enabled(osd::Symbol::GpsSpeed) ? osd_gps_speed_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_home_dist_pos = enabled(osd::Symbol::HomeDistance) ? osd_home_dist_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_home_dir_pos = enabled(osd::Symbol::HomeDirection) ? osd_home_dir_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_main_batt_voltage_pos = enabled(osd::Symbol::MainBatteryVoltage) ? osd_main_batt_voltage_pos :
 			LOCATION_HIDDEN;
-	msp_osd_config.osd_current_draw_pos = enabled(SymbolIndex::CURRENT_DRAW) ? osd_current_draw_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_mah_drawn_pos = enabled(SymbolIndex::MAH_DRAWN) ? osd_mah_drawn_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_rssi_value_pos = enabled(SymbolIndex::RSSI_VALUE) ? osd_rssi_value_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_altitude_pos = enabled(SymbolIndex::ALTITUDE) ? osd_altitude_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_numerical_vario_pos = enabled(SymbolIndex::NUMERICAL_VARIO) ? osd_numerical_vario_pos :
+	msp_osd_config.osd_current_draw_pos = enabled(osd::Symbol::CurrentDraw) ? osd_current_draw_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_mah_drawn_pos = enabled(osd::Symbol::MahDrawn) ? osd_mah_drawn_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_rssi_value_pos = enabled(osd::Symbol::Rssi) ? osd_rssi_value_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_altitude_pos = enabled(osd::Symbol::Altitude) ? osd_altitude_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_numerical_vario_pos = enabled(osd::Symbol::NumericalVario) ? osd_numerical_vario_pos :
 			LOCATION_HIDDEN;
 
-	msp_osd_config.osd_power_pos = enabled(SymbolIndex::POWER) ? osd_power_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_avg_cell_voltage_pos = enabled(SymbolIndex::AVG_CELL_VOLTAGE) ? osd_avg_cell_voltage_pos :
+	msp_osd_config.osd_power_pos = enabled(osd::Symbol::Power) ? osd_power_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_avg_cell_voltage_pos = enabled(osd::Symbol::AverageCellVoltage) ? osd_avg_cell_voltage_pos :
 			LOCATION_HIDDEN;
 
 	// the location of our crosshairs can change
 	msp_osd_config.osd_crosshairs_pos = LOCATION_HIDDEN;
 
-	if (enabled(SymbolIndex::CROSSHAIRS)) {
+	if (enabled(osd::Symbol::Crosshairs)) {
 		msp_osd_config.osd_crosshairs_pos = osd_crosshairs_pos - 32 * _param_osd_ch_height.get();
 	}
 
@@ -299,6 +299,9 @@ void MspOsd::Run()
 		this->Send(MSP_GET_VTX_CONFIG, nullptr, 0);
 	}
 
+	_telemetry.update();
+	const osd::TelemetryData &telemetry = _telemetry.data();
+
 	// avoid premature pessimization; if skip processing if we're effectively disabled
 	if (_param_osd_symbols.get() == 0) {
 		return;
@@ -312,21 +315,9 @@ void MspOsd::Run()
 
 	// update display message
 	{
-		vehicle_status_s vehicle_status{};
-		_vehicle_status_sub.copy(&vehicle_status);
-
-		vehicle_attitude_s vehicle_attitude{};
-		_vehicle_attitude_sub.copy(&vehicle_attitude);
-
-		log_message_s log_message{};
-		_log_message_sub.copy(&log_message);
-		// TODO re-wirte this function?
-		const auto display_message = msp_osd::construct_display_message(
-						     vehicle_status,
-						     vehicle_attitude,
-						     log_message,
-						     _param_osd_log_level.get(),
-						     _display);
+		msp_name_t display_message{};
+		_telemetry.update_message_display(_param_osd_log_level.get(), _display);
+		_display.get(display_message.craft_name, hrt_absolute_time());
 
 		char msg[sizeof(msp_name_t) + 5] = {0};
 		int index = 0;
@@ -347,58 +338,44 @@ void MspOsd::Run()
 
 	// MSP_ANALOG
 	{
-		if (enabled(SymbolIndex::RSSI_VALUE)) {
-			input_rc_s input_rc{};
-			_input_rc_sub.copy(&input_rc);
-			const auto msg = msp_osd::construct_rendor_RSSI(input_rc);
+		if (enabled(osd::Symbol::Rssi)) {
+			const auto msg = msp_osd::construct_rendor_RSSI(telemetry.input_rc);
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_rssi_t));
 		}
 	}
 
 	// MSP_BATTERY_STATE
 	{
-		battery_status_s battery_status{};
-		_battery_status_sub.copy(&battery_status);
-
-		const auto msg_original = msp_osd::construct_BATTERY_STATE(battery_status);
+		const auto msg_original = msp_osd::construct_BATTERY_STATE(telemetry.battery);
 		this->Send(MSP_BATTERY_STATE, &msg_original);
 
-		const auto msg = msp_osd::construct_rendor_BATTERY_STATE(battery_status);
+		const auto msg = msp_osd::construct_rendor_BATTERY_STATE(telemetry.battery);
 		this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_battery_state_t));
 
 	}
 
 	// MSP_RAW_GPS
 	{
-		sensor_gps_s vehicle_gps_position{};
-		_vehicle_gps_position_sub.copy(&vehicle_gps_position);
-
-		if (enabled(SymbolIndex::GPS_LAT)) {
-			const auto msg = msp_osd::construct_rendor_GPS_LAT(vehicle_gps_position);
+		if (enabled(osd::Symbol::GpsLatitude)) {
+			const auto msg = msp_osd::construct_rendor_GPS_LAT(telemetry.gps);
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_latitude_t));
 		}
 
-		if (enabled(SymbolIndex::GPS_LON)) {
-			const auto msg = msp_osd::construct_rendor_GPS_LON(vehicle_gps_position);
+		if (enabled(osd::Symbol::GpsLongitude)) {
+			const auto msg = msp_osd::construct_rendor_GPS_LON(telemetry.gps);
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_longitude_t));
 		}
 
-		if (enabled(SymbolIndex::GPS_SATS)) {
-			const auto msg = msp_osd::construct_rendor_GPS_NUM(vehicle_gps_position);
+		if (enabled(osd::Symbol::GpsSatellites)) {
+			const auto msg = msp_osd::construct_rendor_GPS_NUM(telemetry.gps);
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_satellites_used_t));
 		}
 	}
 
 	// MSP_COMP_GPS
 	{
-		home_position_s home_position{};
-		_home_position_sub.copy(&home_position);
-
-		vehicle_global_position_s vehicle_global_position{};
-		_vehicle_global_position_sub.copy(&vehicle_global_position);
-
-		if (enabled(SymbolIndex::HOME_DIST)) {
-			const auto msg =  msp_osd::construct_rendor_distanceToHome(home_position, vehicle_global_position);
+		if (enabled(osd::Symbol::HomeDistance)) {
+			const auto msg =  msp_osd::construct_rendor_distanceToHome(telemetry.home, telemetry.global_position);
 
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_distanceToHome_t));
 		}
@@ -406,15 +383,12 @@ void MspOsd::Run()
 
 	// MSP_ATTITUDE
 	{
-		vehicle_attitude_s vehicle_attitude{};
-		_vehicle_attitude_sub.copy(&vehicle_attitude);
-
 		{
-			const auto msg = msp_osd::construct_rendor_PITCH(vehicle_attitude);
+			const auto msg = msp_osd::construct_rendor_PITCH(telemetry.attitude);
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_pitch_t));
 		}
 		{
-			const auto msg = msp_osd::construct_rendor_ROLL(vehicle_attitude);
+			const auto msg = msp_osd::construct_rendor_ROLL(telemetry.attitude);
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_roll_t));
 		}
 	}
@@ -422,14 +396,8 @@ void MspOsd::Run()
 
 	// MSP_ALTITUDE
 	{
-		sensor_gps_s vehicle_gps_position{};
-		_vehicle_gps_position_sub.copy(&vehicle_gps_position);
-
-		vehicle_local_position_s vehicle_local_position{};
-		_vehicle_local_position_sub.copy(&vehicle_local_position);
-
-		if (enabled(SymbolIndex::ALTITUDE)) {
-			const auto msg = msp_osd::construct_Rendor_ALTITUDE(vehicle_gps_position, vehicle_local_position);
+		if (enabled(osd::Symbol::Altitude)) {
+			const auto msg = msp_osd::construct_Rendor_ALTITUDE(telemetry.gps, telemetry.local_position);
 
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_altitude_t));
 		}
@@ -443,13 +411,8 @@ void MspOsd::Run()
 	// MSP_RC
 	{
 		if (_param_osd_rc_stick.get() == 1) {
-			vehicle_status_s vehicle_status{};
-			_vehicle_status_sub.copy(&vehicle_status);
-
-			if (vehicle_status.arming_state != vehicle_status_s::ARMING_STATE_ARMED) {
-				input_rc_s input_rc{};
-				_input_rc_sub.copy(&input_rc);
-				const auto msg = msp_osd::construct_MSP_RC(input_rc);
+			if (telemetry.status.arming_state != vehicle_status_s::ARMING_STATE_ARMED) {
+				const auto msg = msp_osd::construct_MSP_RC(telemetry.input_rc);
 				this->Send(MSP_RC, &msg, sizeof(msp_rc_t));
 			}
 		}
@@ -458,10 +421,7 @@ void MspOsd::Run()
 
 	// MSP_STATUS
 	{
-		vehicle_status_s vehicle_status{};
-		_vehicle_status_sub.copy(&vehicle_status);
-
-		const auto msg = msp_osd::construct_MSP_STATUS(vehicle_status);
+		const auto msg = msp_osd::construct_MSP_STATUS(telemetry.status);
 		this->Send(MSP_STATUS, &msg, sizeof(msp_status_t));
 	}
 
@@ -547,9 +507,9 @@ void MspOsd::parameters_update()
 	_display.set_dwell(hrt_abstime(_param_osd_dwell_time.get() * 1000ULL));
 }
 
-bool MspOsd::enabled(const SymbolIndex &symbol)
+bool MspOsd::enabled(osd::Symbol symbol)
 {
-	return _param_osd_symbols.get() & (1u << symbol);
+	return _param_osd_symbols.get() & (1u << static_cast<uint8_t>(symbol));
 }
 
 int MspOsd::task_spawn(int argc, char *argv[])
