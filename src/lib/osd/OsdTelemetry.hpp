@@ -51,6 +51,35 @@
 namespace osd
 {
 
+enum class Symbol : uint8_t {
+	CraftName = 0,
+	Disarmed = 1,
+	GpsLatitude = 2,
+	GpsLongitude = 3,
+	GpsSatellites = 4,
+	GpsSpeed = 5,
+	HomeDistance = 6,
+	HomeDirection = 7,
+	MainBatteryVoltage = 8,
+	CurrentDraw = 9,
+	MahDrawn = 10,
+	Rssi = 11,
+	Altitude = 12,
+	NumericalVario = 13,
+	FlightMode = 14,
+	EscTemperature = 15,
+	PitchAngle = 16,
+	RollAngle = 17,
+	Crosshairs = 18,
+	AverageCellVoltage = 19,
+	HorizonSidebars = 20,
+	Power = 21,
+	FlightTime = 22,
+	StatusMessage = 23,
+	ArtificialHorizon = 24,
+	Heading = 25,
+};
+
 struct TelemetryData {
 	airspeed_validated_s airspeed{};
 	battery_status_s battery{};
@@ -82,7 +111,6 @@ public:
 
 	const TelemetryData &data() const { return _data; }
 	const char *flight_mode() const;
-	const char *heading() const;
 	float flight_time_s() const;
 
 private:
@@ -99,7 +127,8 @@ private:
 	uORB::Subscription _status_sub{ORB_ID(vehicle_status)};
 
 	TelemetryData _data{};
-	uint64_t _last_warning_timestamp{0};
+	uint64_t _last_log_message_timestamp{0};
+	uint64_t _warning_display_timestamp{0};
 };
 
 } // namespace osd

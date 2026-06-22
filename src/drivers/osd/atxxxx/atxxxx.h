@@ -49,6 +49,8 @@
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/module_params.h>
 #include <px4_platform_common/i2c_spi_buses.h>
+#include <uORB/SubscriptionInterval.hpp>
+#include <uORB/topics/parameter_update.h>
 
 #define OSD_SPI_BUS_SPEED (2000000L) /*  2 MHz  */
 
@@ -90,12 +92,13 @@ private:
 
 	int add_character_to_screen(char c, uint8_t pos_x, uint8_t pos_y);
 	int add_string_to_screen(const char *str, uint8_t pos_x, uint8_t pos_y, int width);
-	void add_string_to_screen_centered(const char *str, uint8_t pos_y, int max_length);
 	void clear_line(uint8_t pos_x, uint8_t pos_y, int length);
 
-	int add_battery_info(const battery_status_s &battery, uint8_t pos_x, uint8_t pos_y);
+	int add_battery_voltage(const battery_status_s &battery, uint8_t pos_x, uint8_t pos_y);
+	int add_consumed_mah(const battery_status_s &battery, uint8_t pos_x, uint8_t pos_y);
 	int add_altitude(const vehicle_local_position_s &local_position, uint8_t pos_x, uint8_t pos_y);
 	int add_flighttime(float flight_time, uint8_t pos_x, uint8_t pos_y);
+	bool enabled(osd::Symbol symbol) const;
 
 	int enable_screen();
 	int disable_screen();
@@ -104,8 +107,62 @@ private:
 
 	osd::MessageDisplay _display{};
 	osd::Telemetry _telemetry{};
+	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1000000};
 
 	DEFINE_PARAMETERS(
-		(ParamInt<px4::params::OSD_ATXXXX_CFG>) _param_osd_atxxxx_cfg
+		(ParamInt<px4::params::OSD_ATXXXX_CFG>) _param_osd_atxxxx_cfg,
+		(ParamInt<px4::params::OSD_SYMBOLS>) _param_osd_symbols,
+		(ParamInt<px4::params::OSD_LOG_LEVEL>) _param_osd_log_level,
+		(ParamInt<px4::params::OSD_SCROLL_RATE>) _param_osd_scroll_rate,
+		(ParamInt<px4::params::OSD_DWELL_TIME>) _param_osd_dwell_time,
+		(ParamInt<px4::params::OSD_BAT_VOLT_X>) _param_osd_bat_volt_x,
+		(ParamInt<px4::params::OSD_BAT_VOLT_Y>) _param_osd_bat_volt_y,
+		(ParamInt<px4::params::OSD_MAH_X>) _param_osd_mah_x,
+		(ParamInt<px4::params::OSD_MAH_Y>) _param_osd_mah_y,
+		(ParamInt<px4::params::OSD_CELL_V_X>) _param_osd_cell_v_x,
+		(ParamInt<px4::params::OSD_CELL_V_Y>) _param_osd_cell_v_y,
+		(ParamInt<px4::params::OSD_RSSI_X>) _param_osd_rssi_x,
+		(ParamInt<px4::params::OSD_RSSI_Y>) _param_osd_rssi_y,
+		(ParamInt<px4::params::OSD_GPS_SAT_X>) _param_osd_gps_sat_x,
+		(ParamInt<px4::params::OSD_GPS_SAT_Y>) _param_osd_gps_sat_y,
+		(ParamInt<px4::params::OSD_GPS_SPD_X>) _param_osd_gps_spd_x,
+		(ParamInt<px4::params::OSD_GPS_SPD_Y>) _param_osd_gps_spd_y,
+		(ParamInt<px4::params::OSD_ALT_X>) _param_osd_alt_x,
+		(ParamInt<px4::params::OSD_ALT_Y>) _param_osd_alt_y,
+		(ParamInt<px4::params::OSD_HOME_DIR_X>) _param_osd_home_dir_x,
+		(ParamInt<px4::params::OSD_HOME_DIR_Y>) _param_osd_home_dir_y,
+		(ParamInt<px4::params::OSD_HOME_DST_X>) _param_osd_home_dst_x,
+		(ParamInt<px4::params::OSD_HOME_DST_Y>) _param_osd_home_dst_y,
+		(ParamInt<px4::params::OSD_AH_X>) _param_osd_ah_x,
+		(ParamInt<px4::params::OSD_AH_Y>) _param_osd_ah_y,
+		(ParamInt<px4::params::OSD_MODE_X>) _param_osd_mode_x,
+		(ParamInt<px4::params::OSD_MODE_Y>) _param_osd_mode_y,
+		(ParamInt<px4::params::OSD_FTIME_X>) _param_osd_ftime_x,
+		(ParamInt<px4::params::OSD_FTIME_Y>) _param_osd_ftime_y,
+		(ParamInt<px4::params::OSD_STATUS_X>) _param_osd_status_x,
+		(ParamInt<px4::params::OSD_STATUS_Y>) _param_osd_status_y,
+		(ParamInt<px4::params::OSD_ARM_X>) _param_osd_arm_x,
+		(ParamInt<px4::params::OSD_ARM_Y>) _param_osd_arm_y,
+		(ParamInt<px4::params::OSD_HEAD_X>) _param_osd_head_x,
+		(ParamInt<px4::params::OSD_HEAD_Y>) _param_osd_head_y,
+		(ParamInt<px4::params::OSD_CROSS_X>) _param_osd_cross_x,
+		(ParamInt<px4::params::OSD_CROSS_Y>) _param_osd_cross_y,
+		(ParamInt<px4::params::OSD_CURRENT_X>) _param_osd_current_x,
+		(ParamInt<px4::params::OSD_CURRENT_Y>) _param_osd_current_y,
+		(ParamInt<px4::params::OSD_POWER_X>) _param_osd_power_x,
+		(ParamInt<px4::params::OSD_POWER_Y>) _param_osd_power_y,
+		(ParamInt<px4::params::OSD_VARIO_X>) _param_osd_vario_x,
+		(ParamInt<px4::params::OSD_VARIO_Y>) _param_osd_vario_y,
+		(ParamInt<px4::params::OSD_PITCH_X>) _param_osd_pitch_x,
+		(ParamInt<px4::params::OSD_PITCH_Y>) _param_osd_pitch_y,
+		(ParamInt<px4::params::OSD_ROLL_X>) _param_osd_roll_x,
+		(ParamInt<px4::params::OSD_ROLL_Y>) _param_osd_roll_y,
+		(ParamInt<px4::params::OSD_GPS_LAT_X>) _param_osd_gps_lat_x,
+		(ParamInt<px4::params::OSD_GPS_LAT_Y>) _param_osd_gps_lat_y,
+		(ParamInt<px4::params::OSD_GPS_LON_X>) _param_osd_gps_lon_x,
+		(ParamInt<px4::params::OSD_GPS_LON_Y>) _param_osd_gps_lon_y,
+		(ParamInt<px4::params::OSD_CAM_VFOV>) _param_osd_cam_vfov,
+		(ParamInt<px4::params::OSD_CAM_HFOV>) _param_osd_cam_hfov,
+		(ParamInt<px4::params::OSD_CAM_UPT>) _param_osd_cam_upt
 	)
 };

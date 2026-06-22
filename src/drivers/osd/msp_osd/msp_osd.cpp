@@ -166,31 +166,31 @@ void MspOsd::SendConfig()
 	msp_osd_config.overlay_radio_mode = 0;             //  0
 
 	// display conditional elements
-	msp_osd_config.osd_craft_name_pos = enabled(SymbolIndex::CRAFT_NAME) ? osd_craft_name_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_disarmed_pos = enabled(SymbolIndex::DISARMED) ? osd_disarmed_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_lat_pos = enabled(SymbolIndex::GPS_LAT) ? osd_gps_lat_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_lon_pos = enabled(SymbolIndex::GPS_LON) ? osd_gps_lon_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_sats_pos = enabled(SymbolIndex::GPS_SATS) ? osd_gps_sats_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_speed_pos = enabled(SymbolIndex::GPS_SPEED) ? osd_gps_speed_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_home_dist_pos = enabled(SymbolIndex::HOME_DIST) ? osd_home_dist_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_home_dir_pos = enabled(SymbolIndex::HOME_DIR) ? osd_home_dir_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_main_batt_voltage_pos = enabled(SymbolIndex::MAIN_BATT_VOLTAGE) ? osd_main_batt_voltage_pos :
+	msp_osd_config.osd_craft_name_pos = enabled(osd::Symbol::CraftName) ? osd_craft_name_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_disarmed_pos = enabled(osd::Symbol::Disarmed) ? osd_disarmed_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_gps_lat_pos = enabled(osd::Symbol::GpsLatitude) ? osd_gps_lat_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_gps_lon_pos = enabled(osd::Symbol::GpsLongitude) ? osd_gps_lon_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_gps_sats_pos = enabled(osd::Symbol::GpsSatellites) ? osd_gps_sats_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_gps_speed_pos = enabled(osd::Symbol::GpsSpeed) ? osd_gps_speed_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_home_dist_pos = enabled(osd::Symbol::HomeDistance) ? osd_home_dist_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_home_dir_pos = enabled(osd::Symbol::HomeDirection) ? osd_home_dir_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_main_batt_voltage_pos = enabled(osd::Symbol::MainBatteryVoltage) ? osd_main_batt_voltage_pos :
 			LOCATION_HIDDEN;
-	msp_osd_config.osd_current_draw_pos = enabled(SymbolIndex::CURRENT_DRAW) ? osd_current_draw_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_mah_drawn_pos = enabled(SymbolIndex::MAH_DRAWN) ? osd_mah_drawn_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_rssi_value_pos = enabled(SymbolIndex::RSSI_VALUE) ? osd_rssi_value_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_altitude_pos = enabled(SymbolIndex::ALTITUDE) ? osd_altitude_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_numerical_vario_pos = enabled(SymbolIndex::NUMERICAL_VARIO) ? osd_numerical_vario_pos :
+	msp_osd_config.osd_current_draw_pos = enabled(osd::Symbol::CurrentDraw) ? osd_current_draw_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_mah_drawn_pos = enabled(osd::Symbol::MahDrawn) ? osd_mah_drawn_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_rssi_value_pos = enabled(osd::Symbol::Rssi) ? osd_rssi_value_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_altitude_pos = enabled(osd::Symbol::Altitude) ? osd_altitude_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_numerical_vario_pos = enabled(osd::Symbol::NumericalVario) ? osd_numerical_vario_pos :
 			LOCATION_HIDDEN;
 
-	msp_osd_config.osd_power_pos = enabled(SymbolIndex::POWER) ? osd_power_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_avg_cell_voltage_pos = enabled(SymbolIndex::AVG_CELL_VOLTAGE) ? osd_avg_cell_voltage_pos :
+	msp_osd_config.osd_power_pos = enabled(osd::Symbol::Power) ? osd_power_pos : LOCATION_HIDDEN;
+	msp_osd_config.osd_avg_cell_voltage_pos = enabled(osd::Symbol::AverageCellVoltage) ? osd_avg_cell_voltage_pos :
 			LOCATION_HIDDEN;
 
 	// the location of our crosshairs can change
 	msp_osd_config.osd_crosshairs_pos = LOCATION_HIDDEN;
 
-	if (enabled(SymbolIndex::CROSSHAIRS)) {
+	if (enabled(osd::Symbol::Crosshairs)) {
 		msp_osd_config.osd_crosshairs_pos = osd_crosshairs_pos - 32 * _param_osd_ch_height.get();
 	}
 
@@ -338,7 +338,7 @@ void MspOsd::Run()
 
 	// MSP_ANALOG
 	{
-		if (enabled(SymbolIndex::RSSI_VALUE)) {
+		if (enabled(osd::Symbol::Rssi)) {
 			const auto msg = msp_osd::construct_rendor_RSSI(telemetry.input_rc);
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_rssi_t));
 		}
@@ -356,17 +356,17 @@ void MspOsd::Run()
 
 	// MSP_RAW_GPS
 	{
-		if (enabled(SymbolIndex::GPS_LAT)) {
+		if (enabled(osd::Symbol::GpsLatitude)) {
 			const auto msg = msp_osd::construct_rendor_GPS_LAT(telemetry.gps);
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_latitude_t));
 		}
 
-		if (enabled(SymbolIndex::GPS_LON)) {
+		if (enabled(osd::Symbol::GpsLongitude)) {
 			const auto msg = msp_osd::construct_rendor_GPS_LON(telemetry.gps);
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_longitude_t));
 		}
 
-		if (enabled(SymbolIndex::GPS_SATS)) {
+		if (enabled(osd::Symbol::GpsSatellites)) {
 			const auto msg = msp_osd::construct_rendor_GPS_NUM(telemetry.gps);
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_satellites_used_t));
 		}
@@ -374,7 +374,7 @@ void MspOsd::Run()
 
 	// MSP_COMP_GPS
 	{
-		if (enabled(SymbolIndex::HOME_DIST)) {
+		if (enabled(osd::Symbol::HomeDistance)) {
 			const auto msg =  msp_osd::construct_rendor_distanceToHome(telemetry.home, telemetry.global_position);
 
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_distanceToHome_t));
@@ -396,7 +396,7 @@ void MspOsd::Run()
 
 	// MSP_ALTITUDE
 	{
-		if (enabled(SymbolIndex::ALTITUDE)) {
+		if (enabled(osd::Symbol::Altitude)) {
 			const auto msg = msp_osd::construct_Rendor_ALTITUDE(telemetry.gps, telemetry.local_position);
 
 			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_altitude_t));
@@ -507,9 +507,9 @@ void MspOsd::parameters_update()
 	_display.set_dwell(hrt_abstime(_param_osd_dwell_time.get() * 1000ULL));
 }
 
-bool MspOsd::enabled(const SymbolIndex &symbol)
+bool MspOsd::enabled(osd::Symbol symbol)
 {
-	return _param_osd_symbols.get() & (1u << symbol);
+	return _param_osd_symbols.get() & (1u << static_cast<uint8_t>(symbol));
 }
 
 int MspOsd::task_spawn(int argc, char *argv[])

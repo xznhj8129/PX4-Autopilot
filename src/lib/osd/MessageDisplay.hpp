@@ -51,22 +51,9 @@ namespace osd
 #define FULL_MSG_LENGTH 12
 #define FULL_MSG_BUFFER 13
 
-// supported message types
-enum MessageDisplayType { WARNING, FLIGHT_MODE, ARMING, STATUS, HEADING };
-
-// display information
 class MessageDisplay
 {
-	// working information
-	char warning_msg[MSG_BUFFER_SIZE] {""};
-	char flight_mode_msg[MSG_BUFFER_SIZE] {"???"};
-	char arming_msg[MSG_BUFFER_SIZE] {"????"};
-	char heading_msg[MSG_BUFFER_SIZE] {"??"};
-	// currently unused:
-	char status_msg[MSG_BUFFER_SIZE] {""};
-
-	// the full message and the part we're currently displaying
-	char full_message[MSG_BUFFER_SIZE] {"INITIALIZING"};
+	char message_[MSG_BUFFER_SIZE] {""};
 
 	// current index we're displaying
 	uint16_t index{0};
@@ -84,8 +71,7 @@ public:
 	MessageDisplay(const uint64_t period, const uint64_t dwell)
 		: period_(period), dwell_(dwell) {}
 
-	// set the given string
-	void set(const MessageDisplayType mode, const char *string);
+	void set(const char *string);
 
 	// get the latest subsection of the message
 	void get(char *string, const uint32_t current_time);

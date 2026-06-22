@@ -39,6 +39,8 @@
 #include <lib/modes/ui.hpp>
 #include <matrix/math.hpp>
 
+#include <stdio.h>
+
 using namespace time_literals;
 
 namespace osd
@@ -101,32 +103,24 @@ void Telemetry::update_message_display(int log_level, MessageDisplay &display)
 {
 	const uint64_t now = hrt_absolute_time();
 
-	if (_data.status.timestamp == 0 || now - _data.status.timestamp > 1_s) {
-		display.set(MessageDisplayType::ARMING, "???");
-		display.set(MessageDisplayType::FLIGHT_MODE, "???");
+	if (_data.log_message.timestamp > _last_log_message_timestamp) {
+		_last_log_message_timestamp = _data.log_message.timestamp;
 
-	} else {
-		display.set(MessageDisplayType::ARMING,
-			    _data.status.arming_state ==
-			    vehicle_status_s::ARMING_STATE_ARMED
-			    ? "ARM"
-			    : "DSRM");
-		display.set(MessageDisplayType::FLIGHT_MODE, flight_mode());
+		if (_data.log_message.severity <= log_level) {
+			static constexpr const char *severity_names[] {
+				"EMERGENCY", "ALERT", "CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG"
+			};
+			const char *severity = _data.log_message.severity < 8 ? severity_names[_data.log_message.severity] : "STATUS";
+			char message[MSG_BUFFER_SIZE] {};
+			snprintf(message, sizeof(message), "%s: %s", severity, _data.log_message.text);
+			display.set(message);
+			_warning_display_timestamp = now;
+		}
+
+	} else if (_warning_display_timestamp != 0 && now - _warning_display_timestamp > 30_s) {
+		display.set("");
+		_warning_display_timestamp = 0;
 	}
-
-	if (_data.log_message.timestamp > _last_warning_timestamp &&
-	    _data.log_message.severity <= log_level) {
-		display.set(MessageDisplayType::WARNING, _data.log_message.text);
-		_last_warning_timestamp = _data.log_message.timestamp;
-
-	} else if (_last_warning_timestamp != 0 &&
-		   now - _last_warning_timestamp > 30_s) {
-		display.set(MessageDisplayType::WARNING, "");
-		_last_warning_timestamp = 0;
-	}
-
-	display.set(MessageDisplayType::HEADING,
-		    _data.attitude_valid ? heading() : "N?");
 }
 
 const char *Telemetry::flight_mode() const
@@ -134,16 +128,6 @@ const char *Telemetry::flight_mode() const
 	return _data.status.nav_state < vehicle_status_s::NAVIGATION_STATE_MAX
 	       ? mode_util::nav_state_names[_data.status.nav_state]
 	       : "Unknown";
-}
-
-const char *Telemetry::heading() const
-{
-	static constexpr const char *headings[] {"N", "NE", "E", "SE",
-			"S", "SW", "W", "NW"
-						};
-	const int index =
-		static_cast<int>(math::degrees(_data.yaw_rad) + 22.5f) % 360 / 45;
-	return headings[index];
 }
 
 float Telemetry::flight_time_s() const

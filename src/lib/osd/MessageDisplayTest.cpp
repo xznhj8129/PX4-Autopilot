@@ -66,7 +66,7 @@ TEST_F(MessageDisplayTest, testMessageDisplayConstruction)
 	// verify default message
 	char message[FULL_MSG_BUFFER];
 	md_->get(message, 0);
-	EXPECT_STREQ(message, "INITIALIZING");
+	EXPECT_STREQ(message, "");
 }
 
 // check setting and getting various status messages
@@ -78,50 +78,13 @@ TEST_F(MessageDisplayTest, testMessageDisplayStatic)
 	// initialize output string
 	char message[FULL_MSG_BUFFER];
 
-	// set a random flight mode that's too short
-	md_->set(MessageDisplayType::FLIGHT_MODE, "S");
+	md_->set("DISARMED");
 	md_->get(message, 0);
-	EXPECT_STREQ(message, "S|????|??");
+	EXPECT_STREQ(message, "DISARMED");
 
-	// set a random flight mode that's too long
-	md_->set(MessageDisplayType::FLIGHT_MODE, "SOSSOS");
+	md_->set("CRITICAL: PREFLIGHT FAILURE");
 	md_->get(message, 0);
-	EXPECT_STREQ(message, "SOS|????|??");
-
-	// set a random flight mode that's just right
-	md_->set(MessageDisplayType::FLIGHT_MODE, "SOS");
-	md_->get(message, 0);
-	EXPECT_STREQ(message, "SOS|????|??");
-
-	// set a random arming status that's too short
-	md_->set(MessageDisplayType::ARMING, "DS");
-	md_->get(message, 0);
-	EXPECT_STREQ(message, "SOS|DS|??");
-
-	// set a random arming status that's too long
-	md_->set(MessageDisplayType::ARMING, "DISARM");
-	md_->get(message, 0);
-	EXPECT_STREQ(message, "SOS|DISA|??");
-
-	// set a random arming status that's just right
-	md_->set(MessageDisplayType::ARMING, "DSRM");
-	md_->get(message, 0);
-	EXPECT_STREQ(message, "SOS|DSRM|??");
-
-	// set a random heading that's too short
-	md_->set(MessageDisplayType::HEADING, "N");
-	md_->get(message, 0);
-	EXPECT_STREQ(message, "SOS|DSRM|N");
-
-	// set a random heading that's too short
-	md_->set(MessageDisplayType::HEADING, "NBNW");
-	md_->get(message, 0);
-	EXPECT_STREQ(message, "SOS|DSRM|NB");
-
-	// set a random heading that's too short
-	md_->set(MessageDisplayType::HEADING, "NW");
-	md_->get(message, 0);
-	EXPECT_STREQ(message, "SOS|DSRM|NW");
+	EXPECT_STREQ(message, "CRITICAL: PR");
 }
 
 // check setting and getting for a warning message
@@ -131,8 +94,7 @@ TEST_F(MessageDisplayTest, testMessageDisplayWarning)
 	ASSERT_TRUE(static_cast<bool>(md_));
 
 	// set just a warning message, but a very long one
-	md_->set(MessageDisplayType::WARNING,
-		 "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do "
+	md_->set("WARNING: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do "
 		 "eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut "
 		 "enim ad minim veniam, quis nostrud exercitation ullamco laboris "
 		 "nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in "
@@ -140,34 +102,10 @@ TEST_F(MessageDisplayTest, testMessageDisplayWarning)
 		 "nulla pariatur. Excepteur sint occaecat cupidatat non proident, "
 		 "sunt in culpa qui officia deserunt mollit anim id est laborum.");
 
-	// the ground truth message is the following:
-	const char ground_truth[MSG_BUFFER_SIZE] =
-		"???|????|??   WARN: Lorem ipsum dolor sit amet, consectetur adipiscing "
-		"elit, sed do eiusmod tempor incididunt ut labore et dolore magna "
-		"aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco "
-		"laboris nisi ut aliquip ex ea comm            ";
+	char message[FULL_MSG_BUFFER];
+	md_->get(message, 0);
+	EXPECT_STREQ(message, "WARNING: Lor");
 
-	// walk through the message as it scrolls
-	char message[FULL_MSG_BUFFER]; // output message
-	char correct[FULL_MSG_BUFFER]; // correct value of output message
-	uint32_t stamp = DWELL - 1;    // start at the end of the DWELL time
-
-	for (size_t i = 0; i != MSG_BUFFER_SIZE - FULL_MSG_LENGTH; ++i) {
-		// get updated message for this time
-		md_->get(message, stamp);
-
-		// get substring that we should be seeing
-		strncpy(correct, &ground_truth[i], FULL_MSG_LENGTH);
-		correct[FULL_MSG_BUFFER - 1] = '\0';
-		EXPECT_STREQ(message, correct);
-
-		// update time
-		stamp += PERIOD;
-	}
-
-	// verify that we wrap around as expected at the end
-	md_->get(message, stamp);
-	strncpy(correct, ground_truth, FULL_MSG_LENGTH);
-	correct[FULL_MSG_BUFFER - 1] = '\0';
-	EXPECT_STREQ(message, correct);
+	md_->get(message, DWELL);
+	EXPECT_STREQ(message, "ARNING: Lore");
 }
