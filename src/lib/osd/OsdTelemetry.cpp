@@ -85,12 +85,16 @@ void Telemetry::update()
 	const uint64_t now = hrt_absolute_time();
 	_data.battery_valid = _data.battery.connected &&
 			      _data.battery.timestamp != 0 &&
-			      now - _data.battery.timestamp < 2_s;
-	_data.attitude_valid =
-		_data.attitude.timestamp != 0 && now - _data.attitude.timestamp < 1_s;
+			      now - _data.battery.timestamp < 2_s &&
+			      PX4_ISFINITE(_data.battery.voltage_v);
+	_data.attitude_valid = _data.attitude.timestamp != 0 &&
+			       now - _data.attitude.timestamp < 1_s &&
+			       PX4_ISFINITE(_data.roll_rad) && PX4_ISFINITE(_data.pitch_rad) && PX4_ISFINITE(_data.yaw_rad);
 	_data.home_valid = _data.home.valid_hpos &&
 			   _data.global_position.timestamp != 0 &&
-			   now - _data.global_position.timestamp < 1_s;
+			   now - _data.global_position.timestamp < 1_s &&
+			   PX4_ISFINITE(_data.global_position.lat) && PX4_ISFINITE(_data.global_position.lon) &&
+			   PX4_ISFINITE(_data.home.lat) && PX4_ISFINITE(_data.home.lon);
 
 	if (_data.home_valid) {
 		_data.home_distance_m = get_distance_to_next_waypoint(

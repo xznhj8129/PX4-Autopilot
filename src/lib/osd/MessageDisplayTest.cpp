@@ -103,9 +103,9 @@ TEST_F(MessageDisplayTest, testMessageDisplayWarning)
 		 "sunt in culpa qui officia deserunt mollit anim id est laborum.");
 
 	char message[FULL_MSG_BUFFER];
-	md_->get(message, 0);
+	md_->get(message, 10 * DWELL);
 	EXPECT_STREQ(message, "WARNING: Lor");
 
-	md_->get(message, DWELL);
+	md_->get(message, 11 * DWELL);
 	EXPECT_STREQ(message, "ARNING: Lore");
 }

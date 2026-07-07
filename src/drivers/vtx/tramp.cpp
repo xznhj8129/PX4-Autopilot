@@ -67,8 +67,8 @@ bool Tramp::print_settings()
 void Tramp::print_diagnostics()
 {
 	PX4_INFO("Tramp UART: baud %d, RX %" PRIu32 " bytes, %" PRIu32 " valid, %" PRIu32 " echo, %" PRIu32
-		 " invalid, last error %d", _smartbaud, _rx_bytes, _valid_frames, _echo_frames, _invalid_frames,
-		 _last_query_error);
+		 " invalid, last error %d, write-only: %s", _smartbaud, _rx_bytes, _valid_frames, _echo_frames, _invalid_frames,
+		 _last_query_error, _write_only ? "yes" : "no");
 }
 
 bool Tramp::copy_to(vtx_s *msg)
@@ -84,9 +84,12 @@ bool Tramp::copy_to(vtx_s *msg)
 
 int Tramp::get_status()
 {
+	if (_write_only) { return PX4_OK; }
+
 	const uint8_t buf[] = {COMMAND_GET_SETTINGS};
 	const int rv = transmit(buf, sizeof(buf));
 
+	if (rv == WRITE_ONLY) { return PX4_OK; }
 	if (rv != 0) { return rv; }
 
 	_settings.frequency = (_rx_buf[2] | (_rx_buf[3] << 8));
@@ -100,9 +103,12 @@ int Tramp::get_status()
 
 int Tramp::get_temperature()
 {
+	if (_write_only) { return PX4_OK; }
+
 	const uint8_t buf[] = {COMMAND_GET_TEMPERATURE};
 	const int rv = transmit(buf, sizeof(buf));
 
+	if (rv == WRITE_ONLY) { return PX4_OK; }
 	if (rv != 0) { return rv; }
 
 	_settings.temperature = int16_t(_rx_buf[6] | (_rx_buf[7] << 8));
@@ -112,9 +118,12 @@ int Tramp::get_temperature()
 
 int Tramp::reset()
 {
+	if (_write_only) { return PX4_OK; }
+
 	const uint8_t buf[] = {COMMAND_RESET};
 	const int rv = transmit(buf, sizeof(buf));
 
+	if (rv == WRITE_ONLY) { return PX4_OK; }
 	if (rv != 0) { return rv; }
 
 	_settings.min_frequency = int16_t(_rx_buf[2] | (_rx_buf[3] << 8));
@@ -147,6 +156,11 @@ int Tramp::set_power(int16_t power_level)
 
 	if (rv != PX4_OK) { return rv; }
 
+	_settings.requested_power_mW = power_mW;
+	_settings.power_mW = power_mW;
+
+	if (_write_only) { return PX4_OK; }
+
 	rv = get_status();
 
 	if (rv != PX4_OK) { return rv; }
@@ -164,6 +178,10 @@ int Tramp::set_frequency(int16_t frequency_MHz)
 
 	if (rv != PX4_OK) { return rv; }
 
+	_settings.frequency = frequency_MHz;
+
+	if (_write_only) { return PX4_OK; }
+
 	rv = get_status();
 
 	if (rv != PX4_OK) { return rv; }
@@ -180,6 +198,10 @@ int Tramp::set_pit_mode(bool onoff)
 	int rv = transmit(buf, sizeof(buf));
 
 	if (rv != PX4_OK) { return rv; }
+
+	_settings.pit_mode = onoff;
+
+	if (_write_only) { return PX4_OK; }
 
 	rv = get_status();
 
@@ -229,12 +251,20 @@ int Tramp::transmit(const uint8_t *buf, size_t len)
 		return PX4_OK;
 	}
 
+	const uint32_t echo_frames_before = _echo_frames;
+	const uint32_t valid_frames_before = _valid_frames;
 	const int rv = rx_msg();
 	_last_query_error = rv;
 
 	if (rv == PX4_OK) {
 		_query_failures = 0;
 		return PX4_OK;
+	}
+
+	if (_echo_frames > echo_frames_before && _valid_frames == valid_frames_before) {
+		_write_only = true;
+		_query_failures = 0;
+		return WRITE_ONLY;
 	}
 
 	if (++_query_failures >= SMARTBAUD_FAILURES) {
@@ -252,7 +282,7 @@ int Tramp::transmit(const uint8_t *buf, size_t len)
 
 		if (!_serial->setBaudrate(_smartbaud)) { return -EIO; }
 
-		PX4_WARN("Tramp query error %d, baud %d -> %d", rv, previous_baud, _smartbaud);
+		PX4_DEBUG("Tramp query error %d, baud %d -> %d", rv, previous_baud, _smartbaud);
 		_query_failures = 0;
 	}
 

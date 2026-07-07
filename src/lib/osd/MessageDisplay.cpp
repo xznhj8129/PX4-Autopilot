@@ -57,6 +57,7 @@ void MessageDisplay::get(char *string, const uint32_t current_time)
 	// check if we should reset the display position
 	if (updated_) {
 		index = 0;
+		last_update_ = current_time;
 		updated_ = false;
 	}
 

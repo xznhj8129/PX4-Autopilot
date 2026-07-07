@@ -50,6 +50,7 @@ public:
 	static constexpr int SMARTBAUD_MAX{10080};
 	static constexpr int SMARTBAUD_STEP{120};
 	static constexpr uint8_t SMARTBAUD_FAILURES{5};
+	static constexpr int WRITE_ONLY{1};
 
 	struct Settings {
 		// command 'v'
@@ -117,6 +118,7 @@ private:
 	int _smartbaud{BAUDRATE};
 	int _smartbaud_direction{-1};
 	uint8_t _query_failures{};
+	bool _write_only{};
 	uint32_t _rx_bytes{};
 	uint32_t _valid_frames{};
 	uint32_t _echo_frames{};

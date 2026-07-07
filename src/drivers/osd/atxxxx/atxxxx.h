@@ -60,8 +60,18 @@
 #define OSD_CHARS_PER_ROW	30
 #define OSD_NUM_ROWS_PAL	16
 #define OSD_NUM_ROWS_NTSC	13
-#define OSD_ZERO_BYTE 0x00
-#define OSD_PAL_TX_MODE 0x40
+static constexpr uint8_t OSD_VM0 {0x00};
+static constexpr uint8_t OSD_DMM{0x04};
+static constexpr uint8_t OSD_DMAH{0x05};
+static constexpr uint8_t OSD_DMAL{0x06};
+static constexpr uint8_t OSD_DMDI{0x07};
+
+static constexpr uint8_t OSD_VM0_PAL{1 << 6};
+static constexpr uint8_t OSD_VM0_ENABLE_DISPLAY{1 << 3};
+static constexpr uint8_t OSD_VM0_SOFTWARE_RESET{1 << 1};
+static constexpr uint8_t OSD_VM0_DISABLE_VIDEO_BUFFER{1 << 0};
+static constexpr uint8_t OSD_VM0_CONFIGURATION_MASK{OSD_VM0_PAL | OSD_VM0_ENABLE_DISPLAY |
+	OSD_VM0_SOFTWARE_RESET | OSD_VM0_DISABLE_VIDEO_BUFFER};
 
 extern "C" __EXPORT int atxxxx_main(int argc, char *argv[]);
 
@@ -93,8 +103,7 @@ private:
 	int write_character_to_screen(uint8_t c, uint8_t pos_x, uint8_t pos_y);
 	int add_character_to_screen(char c, uint8_t pos_x, uint8_t pos_y);
 	int add_string_to_screen(const char *str, uint8_t pos_x, uint8_t pos_y, int width);
-	void clear_line(uint8_t pos_x, uint8_t pos_y, int length);
-	int flush_screen();
+	int flush_screen(int max_updates);
 
 	int add_battery_voltage(const battery_status_s &battery, uint8_t pos_x, uint8_t pos_y);
 	int add_consumed_mah(const battery_status_s &battery, uint8_t pos_x, uint8_t pos_y);
@@ -112,6 +121,10 @@ private:
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1000000};
 	uint8_t _screen[OSD_CHARS_PER_ROW * OSD_NUM_ROWS_PAL] {};
 	uint8_t _displayed_screen[OSD_CHARS_PER_ROW * OSD_NUM_ROWS_PAL] {};
+	int _flush_position{};
+	bool _keep_running{false};
+	bool _spi_initialized{false};
+	bool _initialized{false};
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::OSD_ATXXXX_CFG>) _param_osd_atxxxx_cfg,
