@@ -17,14 +17,14 @@ parameters:
                   Configure / toggle support display options.
             type: bitmask
             bit:
-                0: (unsupported) CRAFT_NAME
+                0: CRAFT_NAME / SYSID
                 1: ARMING_STATE
                 2: GPS_LAT
                 3: GPS_LON
                 4: GPS_SATS
                 5: GPS_SPEED
                 6: HOME_DIST
-                7: HOME_DIR
+                7: HOME_DIR / MISSION_STATE
                 8: MAIN_BATT_VOLTAGE
                 9: CURRENT_DRAW
                 10: MAH_DRAWN
@@ -32,12 +32,12 @@ parameters:
                 12: ALTITUDE
                 13: NUMERICAL_VARIO
                 14: FLYMODE
-                15: (unsupported) ESC_TMP
+                15: LINK_QUALITY
                 16: PITCH_ANGLE
                 17: ROLL_ANGLE
                 18: CROSSHAIRS
                 19: AVG_CELL_VOLTAGE
-                20: (unsupported) HORIZON_SIDEBARS
+                20: MAV_STATE
                 21: POWER
                 22: FLIGHT_TIME
                 23: STATUS_MESSAGE
@@ -46,7 +46,9 @@ parameters:
                 26: VTX_INFO
                 27: VTX_FREQUENCY
                 28: VTX_POWER
-            default: 533233663
+                29: THROTTLE
+                30: GPS_INFO
+            default: 2144927743
 
         OSD_BAT_VOLT_X:
             description:
@@ -96,15 +98,79 @@ parameters:
             max: 12
             default: 1
 
+        OSD_SYSID_X:
+            description:
+                short: Analog OSD MAVLink system ID X position
+            type: int32
+            min: 0
+            max: 26
+            default: 1
+
+        OSD_SYSID_Y:
+            description:
+                short: Analog OSD MAVLink system ID Y position
+            type: int32
+            min: 0
+            max: 12
+            default: 0
+
+        OSD_MISSION_X:
+            description:
+                short: Analog OSD mission state X position
+            type: int32
+            min: 0
+            max: 22
+            default: 6
+
+        OSD_MISSION_Y:
+            description:
+                short: Analog OSD mission state Y position
+            type: int32
+            min: 0
+            max: 12
+            default: 0
+
+        OSD_MAV_STATE_X:
+            description:
+                short: Analog OSD MAVLink state X position
+            type: int32
+            min: 0
+            max: 24
+            default: 15
+
+        OSD_MAV_STATE_Y:
+            description:
+                short: Analog OSD MAVLink state Y position
+            type: int32
+            min: 0
+            max: 12
+            default: 0
+
         OSD_RSSI_X:
+            description:
+                short: Analog OSD RSSI X position
+            type: int32
+            min: 0
+            max: 25
+            default: 23
+
+        OSD_RSSI_Y:
+            description:
+                short: Analog OSD RSSI Y position
+            type: int32
+            min: 0
+            max: 12
+            default: 0
+
+        OSD_LQ_X:
             description:
                 short: Analog OSD link quality X position
             type: int32
             min: 0
-            max: 24
+            max: 25
             default: 23
 
-        OSD_RSSI_Y:
+        OSD_LQ_Y:
             description:
                 short: Analog OSD link quality Y position
             type: int32
@@ -133,12 +199,28 @@ parameters:
                 short: Analog OSD GPS speed X position
             type: int32
             min: 0
-            max: 26
-            default: 25
+            max: 24
+            default: 24
 
         OSD_GPS_SPD_Y:
             description:
                 short: Analog OSD GPS speed Y position
+            type: int32
+            min: 0
+            max: 12
+            default: 2
+
+        OSD_GPS_INFO_X:
+            description:
+                short: Analog OSD GPS quality X position
+            type: int32
+            min: 0
+            max: 18
+            default: 8
+
+        OSD_GPS_INFO_Y:
+            description:
+                short: Analog OSD GPS quality Y position
             type: int32
             min: 0
             max: 12
@@ -335,6 +417,22 @@ parameters:
             min: 0
             max: 12
             default: 5
+
+        OSD_THROT_X:
+            description:
+                short: Analog OSD throttle X position
+            type: int32
+            min: 0
+            max: 26
+            default: 24
+
+        OSD_THROT_Y:
+            description:
+                short: Analog OSD throttle Y position
+            type: int32
+            min: 0
+            max: 12
+            default: 11
 
         OSD_VARIO_X:
             description:

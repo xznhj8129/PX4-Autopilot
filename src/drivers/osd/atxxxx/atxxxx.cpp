@@ -346,10 +346,14 @@ OSDatxxxx::add_flighttime(float flight_time, uint8_t pos_x, uint8_t pos_y)
 {
 	char buf[10];
 
-	snprintf(buf, sizeof(buf), "%c%5.1f", OSD_SYMBOL_FLIGHT_TIME, (double)flight_time);
+	const int total_seconds = static_cast<int>(flight_time);
+	const int minutes = total_seconds / 60;
+	const int seconds = total_seconds % 60;
+
+	snprintf(buf, sizeof(buf), "%c%02d:%02d", OSD_SYMBOL_FLIGHT_TIME, minutes, seconds);
 	buf[sizeof(buf) - 1] = '\0';
 
-	return add_string_to_screen(buf, pos_x, pos_y, 7);
+	return add_string_to_screen(buf, pos_x, pos_y, 6);
 }
 
 int
@@ -456,7 +460,7 @@ OSDatxxxx::update_screen()
 
 	if (enabled(osd::Symbol::AverageCellVoltage)) {
 		const float cell_voltage = battery.cell_count > 0 ? battery.voltage_v / battery.cell_count : 0.f;
-		snprintf(buf, sizeof(buf), "C%4.2fV", (double)cell_voltage);
+		snprintf(buf, sizeof(buf), "%c%4.2fV", OSD_SYMBOL_BATT_EMPTY, (double)cell_voltage);
 		ret |= add_string_to_screen(buf, _param_osd_cell_v_x.get(), _param_osd_cell_v_y.get(), 7);
 	}
 
@@ -468,14 +472,64 @@ OSDatxxxx::update_screen()
 
 	if (enabled(osd::Symbol::Power)) {
 		const float current_a = PX4_ISFINITE(battery.current_a) ? battery.current_a : 0.f;
-		snprintf(buf, sizeof(buf), "%c%4.0fW", OSD_SYMBOL_WATT, (double)(battery.voltage_v * current_a));
-		ret |= add_string_to_screen(buf, _param_osd_power_x.get(), _param_osd_power_y.get(), 6);
+		snprintf(buf, sizeof(buf), "%4.0fW", (double)(battery.voltage_v * current_a));
+		ret |= add_string_to_screen(buf, _param_osd_power_x.get(), _param_osd_power_y.get(), 5);
+	}
+
+	if (enabled(osd::Symbol::SystemId)) {
+		const int system_id = telemetry.status.system_id != 0 ? telemetry.status.system_id : _param_mav_sys_id.get();
+		snprintf(buf, sizeof(buf), "S%03d", math::constrain(system_id, 0, 999));
+		ret |= add_string_to_screen(buf, _param_osd_sysid_x.get(), _param_osd_sysid_y.get(), 4);
+	}
+
+	if (enabled(osd::Symbol::MavState)) {
+		const char *mav_state = "MAVINI";
+
+		if (telemetry.actuator_armed.termination || telemetry.actuator_armed.kill ||
+		    (telemetry.actuator_armed.lockdown && telemetry.status.hil_state == vehicle_status_s::HIL_STATE_OFF)) {
+			mav_state = "MAVTRM";
+
+		} else if (telemetry.status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
+			mav_state = telemetry.status.failsafe ? "MAVCRT" : "MAVACT";
+
+		} else if (telemetry.status.calibration_enabled || telemetry.status.rc_calibration_in_progress ||
+			   telemetry.actuator_armed.in_esc_calibration_mode) {
+			mav_state = "MAVCAL";
+
+		} else if (telemetry.status.pre_flight_checks_pass) {
+			mav_state = "MAVSTB";
+		}
+
+		ret |= add_string_to_screen(mav_state, _param_osd_mav_state_x.get(), _param_osd_mav_state_y.get(), 6);
 	}
 
 	if (enabled(osd::Symbol::Rssi)) {
-		const int link_quality = telemetry.input_rc.link_quality >= 0 ? telemetry.input_rc.link_quality : 0;
-		snprintf(buf, sizeof(buf), "%c%3d%%", OSD_SYMBOL_RSSI, link_quality);
-		ret |= add_string_to_screen(buf, _param_osd_rssi_x.get(), _param_osd_rssi_y.get(), 6);
+		const bool input_rc_valid = telemetry.input_rc.timestamp != 0;
+
+		if (input_rc_valid && PX4_ISFINITE(telemetry.input_rc.rssi_dbm)) {
+			snprintf(buf, sizeof(buf), "%c%4.0f", OSD_SYMBOL_RSSI, (double)telemetry.input_rc.rssi_dbm);
+
+		} else {
+			int rssi = input_rc_valid && telemetry.input_rc.rssi >= 0
+				   && telemetry.input_rc.rssi <= input_rc_s::RSSI_MAX ? telemetry.input_rc.rssi : 0;
+
+			if (rssi == 0 && telemetry.radio_status.timestamp != 0) {
+				const int radio_rssi = telemetry.radio_status.remote_rssi != 0 ? telemetry.radio_status.remote_rssi :
+					       telemetry.radio_status.rssi;
+				rssi = math::constrain(radio_rssi, 0, 254);
+			}
+
+			snprintf(buf, sizeof(buf), "%c%3d", OSD_SYMBOL_RSSI, rssi);
+		}
+
+		ret |= add_string_to_screen(buf, _param_osd_rssi_x.get(), _param_osd_rssi_y.get(), 5);
+	}
+
+	if (enabled(osd::Symbol::LinkQuality)) {
+		const int link_quality = telemetry.input_rc.timestamp != 0 && telemetry.input_rc.link_quality >= 0
+					 ? telemetry.input_rc.link_quality : 0;
+		snprintf(buf, sizeof(buf), "LQ%3d", link_quality);
+		ret |= add_string_to_screen(buf, _param_osd_lq_x.get(), _param_osd_lq_y.get(), 5);
 	}
 
 	if (enabled(osd::Symbol::GpsSatellites)) {
@@ -486,9 +540,20 @@ OSDatxxxx::update_screen()
 
 	if (enabled(osd::Symbol::GpsSpeed)) {
 		const float speed = telemetry.gps.fix_type >= sensor_gps_s::FIX_TYPE_2D && PX4_ISFINITE(telemetry.gps.vel_m_s)
-				    ? telemetry.gps.vel_m_s : 0.f;
-		snprintf(buf, sizeof(buf), "%3.0f", (double)speed);
-		ret |= add_string_to_screen(buf, _param_osd_gps_spd_x.get(), _param_osd_gps_spd_y.get(), 4);
+				    ? telemetry.gps.vel_m_s * 3.6f : 0.f;
+		snprintf(buf, sizeof(buf), "SPD%3.0f", (double)speed);
+		ret |= add_string_to_screen(buf, _param_osd_gps_spd_x.get(), _param_osd_gps_spd_y.get(), 6);
+	}
+
+	if (enabled(osd::Symbol::GpsInfo)) {
+		const char *fix_type = telemetry.gps.fix_type >= sensor_gps_s::FIX_TYPE_3D ? "3D" :
+				       (telemetry.gps.fix_type >= sensor_gps_s::FIX_TYPE_2D ? "2D" : "NO");
+		const float hdop = PX4_ISFINITE(telemetry.gps.hdop) ? telemetry.gps.hdop : 0.f;
+		const float vdop = PX4_ISFINITE(telemetry.gps.vdop) ? telemetry.gps.vdop : 0.f;
+		const float eph = PX4_ISFINITE(telemetry.gps.eph) ? telemetry.gps.eph : 0.f;
+		const float pdop = sqrtf(hdop * hdop + vdop * vdop);
+		snprintf(buf, sizeof(buf), "%s D%3.1f E%3.1f", fix_type, (double)pdop, (double)eph);
+		ret |= add_string_to_screen(buf, _param_osd_gps_info_x.get(), _param_osd_gps_info_y.get(), 12);
 	}
 
 	if (enabled(osd::Symbol::GpsLatitude)) {
@@ -529,12 +594,28 @@ OSDatxxxx::update_screen()
 		ret |= add_string_to_screen(buf, _param_osd_roll_x.get(), _param_osd_roll_y.get(), 6);
 	}
 
-	if (enabled(osd::Symbol::HomeDirection)) {
-		const float home_bearing = telemetry.home_valid ? telemetry.home_bearing_rad : yaw_rad;
-		const float relative_bearing = matrix::wrap_pi(home_bearing - yaw_rad);
-		const int arrow_index = (8 + static_cast<int>(lroundf(relative_bearing * 8.f / M_PI_F)) + 16) % 16;
-		ret |= add_character_to_screen(OSD_SYMBOL_ARROW_SOUTH + arrow_index,
-					       _param_osd_home_dir_x.get(), _param_osd_home_dir_y.get());
+	if (enabled(osd::Symbol::MissionState)) {
+		const mission_result_s &mission = telemetry.mission_result;
+
+		if (mission.timestamp == 0 || !mission.valid) {
+			strncpy(buf, "MISNONE", sizeof(buf));
+
+		} else if (mission.failure) {
+			strncpy(buf, "MISFAIL", sizeof(buf));
+
+		} else if (mission.finished) {
+			strncpy(buf, "MISDONE", sizeof(buf));
+
+		} else if (mission.warning) {
+			strncpy(buf, "MISWARN", sizeof(buf));
+
+		} else {
+			snprintf(buf, sizeof(buf), "MIS%02u/%02u",
+				 static_cast<unsigned>(math::min(mission.seq_current, static_cast<uint16_t>(99))),
+				 static_cast<unsigned>(math::min(mission.seq_total, static_cast<uint16_t>(99))));
+		}
+
+		ret |= add_string_to_screen(buf, _param_osd_mission_x.get(), _param_osd_mission_y.get(), 8);
 	}
 
 	if (enabled(osd::Symbol::HomeDistance)) {
@@ -568,8 +649,18 @@ OSDatxxxx::update_screen()
 
 	if (enabled(osd::Symbol::Heading)) {
 		const int heading_deg = static_cast<int>(lroundf(math::degrees(yaw_rad))) % 360;
-		snprintf(buf, sizeof(buf), "HDG%03d", heading_deg);
-		ret |= add_string_to_screen(buf, _param_osd_head_x.get(), _param_osd_head_y.get(), 6);
+		snprintf(buf, sizeof(buf), "%c%03d", OSD_SYMBOL_ARROW_NORTH, heading_deg);
+		ret |= add_string_to_screen(buf, _param_osd_head_x.get(), _param_osd_head_y.get(), 4);
+	}
+
+	if (enabled(osd::Symbol::Throttle)) {
+		const bool manual_control_valid = telemetry.manual_control.valid && telemetry.manual_control.timestamp != 0 &&
+						  hrt_elapsed_time(&telemetry.manual_control.timestamp) < 1_s &&
+						  PX4_ISFINITE(telemetry.manual_control.throttle);
+		const float throttle = manual_control_valid
+				       ? math::constrain((telemetry.manual_control.throttle + 1.f) * 50.f, 0.f, 100.f) : 0.f;
+		snprintf(buf, sizeof(buf), "T%3.0f", (double)throttle);
+		ret |= add_string_to_screen(buf, _param_osd_throt_x.get(), _param_osd_throt_y.get(), 4);
 	}
 
 #if defined(CONFIG_DRIVERS_VTX)
@@ -617,7 +708,45 @@ OSDatxxxx::update_screen()
 
 	if (enabled(osd::Symbol::StatusMessage)) {
 		if (message[0] == '\0') {
-			strncpy(message, "STATUS OK", sizeof(message));
+			const failsafe_flags_s &failsafe_flags = telemetry.failsafe_flags;
+
+			if (telemetry.status.timestamp == 0) {
+				strncpy(message, "NO STATUS", sizeof(message));
+
+			} else if (telemetry.status.failsafe) {
+				strncpy(message, "FAILSAFE", sizeof(message));
+
+			} else if (telemetry.status.failure_detector_status != vehicle_status_s::FAILURE_NONE ||
+				failsafe_flags.fd_critical_failure) {
+				strncpy(message, "FAILURE", sizeof(message));
+
+			} else if (failsafe_flags.battery_warning != 0 || failsafe_flags.battery_unhealthy) {
+				strncpy(message, "BATT WARN", sizeof(message));
+
+			} else if (failsafe_flags.manual_control_signal_lost) {
+				strncpy(message, "NO RC", sizeof(message));
+
+			} else if (failsafe_flags.attitude_invalid) {
+				strncpy(message, "NO ATT", sizeof(message));
+
+			} else if (failsafe_flags.local_position_invalid) {
+				strncpy(message, "NO POS", sizeof(message));
+
+			} else if (failsafe_flags.global_position_invalid) {
+				strncpy(message, "NO GPS", sizeof(message));
+
+			} else if (failsafe_flags.home_position_invalid) {
+				strncpy(message, "NO HOME", sizeof(message));
+
+			} else if (telemetry.status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
+				strncpy(message, "ARMED", sizeof(message));
+
+			} else if (telemetry.status.pre_flight_checks_pass) {
+				strncpy(message, "READY", sizeof(message));
+
+			} else {
+				strncpy(message, "NOT READY", sizeof(message));
+			}
 		}
 
 		ret |= add_string_to_screen(message, _param_osd_status_x.get(), _param_osd_status_y.get(), FULL_MSG_LENGTH);

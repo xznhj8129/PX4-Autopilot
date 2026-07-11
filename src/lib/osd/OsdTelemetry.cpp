@@ -48,11 +48,16 @@ namespace osd
 
 void Telemetry::update()
 {
+	_actuator_armed_sub.update(&_data.actuator_armed);
 	_airspeed_sub.update(&_data.airspeed);
 	_battery_sub.update(&_data.battery);
+	_failsafe_flags_sub.update(&_data.failsafe_flags);
 	_home_sub.update(&_data.home);
 	_input_rc_sub.update(&_data.input_rc);
 	_log_message_sub.update(&_data.log_message);
+	_manual_control_sub.update(&_data.manual_control);
+	_mission_result_sub.update(&_data.mission_result);
+	_radio_status_sub.update(&_data.radio_status);
 	_air_data_sub.update(&_data.air_data);
 	_global_position_sub.update(&_data.global_position);
 	_gps_sub.update(&_data.gps);

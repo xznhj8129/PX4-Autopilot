@@ -19,7 +19,7 @@ param set-default SER_TEL4_BAUD 115200
 
 param set-default IMU_GYRO_CUTOFF 80
 param set-default SYS_AUTOSTART 4001
-param set-default OSD_SYMBOLS 533233663
+param set-default OSD_SYMBOLS 2144927743
 param set-default MC_PITCHRATE_K 0.4
 param set-default MC_ROLLRATE_K 0.35
 param set-default MC_YAWRATE_K 1.2

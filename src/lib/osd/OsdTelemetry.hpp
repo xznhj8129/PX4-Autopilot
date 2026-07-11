@@ -37,11 +37,16 @@
 
 #include <px4_platform_common/px4_config.h>
 #include <uORB/Subscription.hpp>
+#include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/airspeed_validated.h>
 #include <uORB/topics/battery_status.h>
+#include <uORB/topics/failsafe_flags.h>
 #include <uORB/topics/home_position.h>
 #include <uORB/topics/input_rc.h>
 #include <uORB/topics/log_message.h>
+#include <uORB/topics/mission_result.h>
+#include <uORB/topics/manual_control_setpoint.h>
+#include <uORB/topics/radio_status.h>
 #include <uORB/topics/sensor_gps.h>
 #if defined(CONFIG_DRIVERS_VTX)
 #include <uORB/topics/vtx.h>
@@ -57,6 +62,7 @@ namespace osd
 
 enum class Symbol : uint8_t {
 	CraftName = 0,
+	SystemId = 0,
 	Disarmed = 1,
 	GpsLatitude = 2,
 	GpsLongitude = 3,
@@ -64,6 +70,7 @@ enum class Symbol : uint8_t {
 	GpsSpeed = 5,
 	HomeDistance = 6,
 	HomeDirection = 7,
+	MissionState = 7,
 	MainBatteryVoltage = 8,
 	CurrentDraw = 9,
 	MahDrawn = 10,
@@ -71,12 +78,13 @@ enum class Symbol : uint8_t {
 	Altitude = 12,
 	NumericalVario = 13,
 	FlightMode = 14,
-	EscTemperature = 15,
+	LinkQuality = 15,
 	PitchAngle = 16,
 	RollAngle = 17,
 	Crosshairs = 18,
 	AverageCellVoltage = 19,
 	HorizonSidebars = 20,
+	MavState = 20,
 	Power = 21,
 	FlightTime = 22,
 	StatusMessage = 23,
@@ -85,14 +93,21 @@ enum class Symbol : uint8_t {
 	VtxInfo = 26,
 	VtxFrequency = 27,
 	VtxPower = 28,
+	Throttle = 29,
+	GpsInfo = 30,
 };
 
 struct TelemetryData {
+	actuator_armed_s actuator_armed{};
 	airspeed_validated_s airspeed{};
 	battery_status_s battery{};
+	failsafe_flags_s failsafe_flags{};
 	home_position_s home{};
 	input_rc_s input_rc{};
 	log_message_s log_message{};
+	manual_control_setpoint_s manual_control{};
+	mission_result_s mission_result{};
+	radio_status_s radio_status{};
 	sensor_gps_s gps{};
 #if defined(CONFIG_DRIVERS_VTX)
 	vtx_s vtx{};
@@ -124,11 +139,16 @@ public:
 	float flight_time_s() const;
 
 private:
+	uORB::Subscription _actuator_armed_sub{ORB_ID(actuator_armed)};
 	uORB::Subscription _airspeed_sub{ORB_ID(airspeed_validated)};
 	uORB::Subscription _battery_sub{ORB_ID(battery_status)};
+	uORB::Subscription _failsafe_flags_sub{ORB_ID(failsafe_flags)};
 	uORB::Subscription _home_sub{ORB_ID(home_position)};
 	uORB::Subscription _input_rc_sub{ORB_ID(input_rc)};
 	uORB::Subscription _log_message_sub{ORB_ID(log_message)};
+	uORB::Subscription _manual_control_sub{ORB_ID(manual_control_setpoint)};
+	uORB::Subscription _mission_result_sub{ORB_ID(mission_result)};
+	uORB::Subscription _radio_status_sub{ORB_ID(radio_status)};
 	uORB::Subscription _air_data_sub{ORB_ID(vehicle_air_data)};
 	uORB::Subscription _attitude_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription _global_position_sub{ORB_ID(vehicle_global_position)};
